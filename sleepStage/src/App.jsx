@@ -1,13 +1,14 @@
 import './App.css'
-import axios from 'axios';
 import CSVUploader from './CSVUploader';
+import EOGUploader from './EOGUploader';
 
 function App() {
 
   return (
     <>
       <div className='App'>
-        <CSVUploader/>
+        {/* <CSVUploader/> */}
+        <EOGUploader/>
       </div>
     </>
   )
