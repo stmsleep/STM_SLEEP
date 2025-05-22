@@ -13,12 +13,16 @@
     "axios": "^1.9.0",
     "chart.js": "^4.4.9",
     "chartjs-plugin-zoom": "^2.2.0",
+    "pdfjs-dist": "^5.2.133",
     "plotly.js": "^3.0.1",
     "react": "^19.1.0",
     "react-chartjs-2": "^5.3.0",
     "react-chartjs2": "^1.2.1",
     "react-dom": "^19.1.0",
-    "react-plotly.js": "^2.6.0"
+    "react-pdf": "^9.2.1",
+    "react-plotly.js": "^2.6.0",
+    "react-router-dom": "^7.6.0",
+    "react-spinners": "^0.17.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",

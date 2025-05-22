@@ -1,47 +1,46 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Plot from 'react-plotly.js';
 import axios from 'axios';
-import './EOGUploader.css'; // <- import your stylesheet here
+import './EOGUploader.css'; 
+import Spinner from '../spinner/Spinner';
 
 export default function EOGUploader() {
-  const [file, setFile] = useState(null);
   const [plotData, setPlotData] = useState(null);
-  const [uploading, setUploading] = useState(false);
+  const [isLoading,setIsLoading] = useState(false);
 
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
-  };
 
-  const handleUploadClick = async () => {
-    if (!file) {
-      alert("Please select a .txt file first.");
-      return;
+
+  useEffect(()=>{
+    async function FetchPoints() {
+      setIsLoading(true);
+      try{  
+        const response = await axios.post("http://localhost:8000/process_eog/",{
+          headers :{"Content-Type":"multipart/form-data"},
+        });
+        if(response.status === 200){
+          setPlotData(response.data);
+        }else{
+          alert("Failed Fetching Data!..");
+        }
+      }catch(error){
+        alert("Failed Fetching data "+error.message);
+      }
+      setIsLoading(false);
     }
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      setUploading(true);
-      const res = await axios.post("http://localhost:8000/process_eog/", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      setPlotData(res.data);
-    } catch (err) {
-      console.error("Upload failed:", err);
-      alert("Upload failed!");
-    } finally {
-      setUploading(false);
-    }
-  };
+    FetchPoints();
+  },[]);
 
   return (
     <div className="eog-container">
-      <h2>Upload .txt Sensor File</h2>
-      <input type="file" accept=".txt" onChange={handleFileChange} />
-      <button onClick={handleUploadClick} disabled={uploading}>
-        {uploading ? "Uploading..." : "Upload"}
-      </button>
+      <h2>Eye Movement (EOG)</h2>
+
+      {isLoading && (
+          <div> 
+            <Spinner/> 
+            <p style={{textAlign:'center',fontWeight:'bold'}}>This may take some time.. Please stay connect!</p>
+          </div>
+        )
+      }
 
       {plotData && (
         <div className="plot-section">
@@ -71,7 +70,7 @@ export default function EOGUploader() {
             />
           </div>
 
-          <h3>Accelerometer & Gyroscope Plot</h3>
+          <h3>Accelerometer Plot</h3>
           <div className="plot-wrapper">
             <Plot
               data={[
@@ -99,13 +98,31 @@ export default function EOGUploader() {
                   name: 'A_Z',
                   line: { color: 'blue' }
                 },
+              ]}
+              layout={{
+                title: '',
+                height: 400,
+                xaxis: { title: 'Time (s)' },
+                yaxis: { title: 'Acceleration (mg)' },
+                showlegend: true,
+                autosize: true,
+                margin: { l: 50, r: 50, t: 20, b: 40 }
+              }}
+              useResizeHandler
+              style={{ width: "100%" }}
+            />
+          </div>
+
+          <h3>Gyroscope Plot</h3>
+          <div className="plot-wrapper">
+            <Plot
+              data={[
                 {
                   x: plotData.time,
                   y: plotData.g_x,
                   type: 'scatter',
                   mode: 'lines',
                   name: 'G_X',
-                  yaxis: 'y2',
                   line: { color: 'orange' }
                 },
                 {
@@ -114,7 +131,6 @@ export default function EOGUploader() {
                   type: 'scatter',
                   mode: 'lines',
                   name: 'G_Y',
-                  yaxis: 'y2',
                   line: { color: 'purple' }
                 },
                 {
@@ -123,28 +139,25 @@ export default function EOGUploader() {
                   type: 'scatter',
                   mode: 'lines',
                   name: 'G_Z',
-                  yaxis: 'y2',
                   line: { color: 'brown' }
                 },
               ]}
               layout={{
                 title: '',
-                height: 600,
+                height: 400,
                 xaxis: { title: 'Time (s)' },
-                yaxis: { title: 'Acceleration (mg)' },
-                yaxis2: {
-                  title: 'Gyroscope (dps)',
-                  overlaying: 'y',
-                  side: 'right'
-                },
+                yaxis: { title: 'Gyroscope (dps)' },
                 showlegend: true,
                 autosize: true,
-                margin: { l: 50, r: 60, t: 20, b: 40 }
+                margin: { l: 50, r: 50, t: 20, b: 40 }
               }}
               useResizeHandler
               style={{ width: "100%" }}
             />
           </div>
+
+
+
         </div>
       )}
 

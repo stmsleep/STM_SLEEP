@@ -70,3 +70,21 @@ body {
   width: 100%;
   overflow-x: auto;
 }
+
+.txt-uploader-input {
+  width: 100%;
+  max-width: 400px;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  border: 2px solid #d1d5db; /* gray-300 */
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.3s ease;
+  margin-bottom: 1.25rem;
+}
+
+.txt-uploader-input:hover,
+.txt-uploader-input:focus {
+  border-color: #2563eb; /* blue-600 */
+  outline: none;
+}
