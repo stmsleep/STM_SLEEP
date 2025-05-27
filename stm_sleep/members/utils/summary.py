@@ -1,5 +1,6 @@
 import fitz  # PyMuPDF
 
+
 def give_personal_information(lines):
     try:
         personal = {
@@ -41,14 +42,15 @@ def extract_spo2_pr_metrics(lines):
 def extract_spo2_summary(lines):
     try:
         # Find all indices where "SpO2" appears
-        spo2_indices = [i for i, line in enumerate(lines) if line.strip() == "SpO2"]
-        
+        spo2_indices = [i for i, line in enumerate(
+            lines) if line.strip() == "SpO2"]
+
         if len(spo2_indices) < 2:
             return {"error": "Could not find SpO2 summary block."}
-        
+
         # Use the SECOND "SpO2" as the starting point for the summary block
         start_index = spo2_indices[1]
-        
+
         labels = ["95-100", "89-94", "80-88", "70-79", "<70", "Total"]
         durations = lines[start_index + 8:start_index + 14]
         percentages = lines[start_index + 15:start_index + 21]
@@ -57,7 +59,7 @@ def extract_spo2_summary(lines):
             label: {
                 "Duration": durations[i],
                 "%Total": percentages[i],
-                "Events (ODI4%)":events[i]
+                "Events (ODI4%)": events[i]
             } for i, label in enumerate(labels)
         }
 
@@ -73,10 +75,12 @@ def extract_odi_info(lines):
     # Helper to extract ODI block by keyword
     def find_odi_block(keyword):
         try:
-            idx = [i for i, line in enumerate(lines) if line.strip() == keyword][0]
+            idx = [i for i, line in enumerate(
+                lines) if line.strip() == keyword][0]
             return {
                 f"{keyword}": lines[idx + 1].strip(),  # e.g., '0.0 / hr'
-                f"Total {keyword} Events": lines[idx + 3].split()[-1],  # last token
+                # last token
+                f"Total {keyword} Events": lines[idx + 3].split()[-1],
                 f"Time in {keyword} Events": lines[idx + 5].split()[-1],
                 f"% of Time in {keyword} Events": lines[idx + 7].split()[-1],
                 f"Avg {keyword} Event Duration": lines[idx + 9].split()[-1]
@@ -91,25 +95,30 @@ def extract_odi_info(lines):
 
     return odi_data
 
+
 def extract_thresholds(lines):
     threshold_data = {}
-    
+
     for i, line in enumerate(lines):
         if "SpO2 Threshold" in line:
             threshold_data["SpO2 Threshold"] = lines[i].split(":")[-1].strip()
-            threshold_data["SpO2 >"] = [lines[i+1].strip(),lines[i+11].strip(),lines[i+17].strip()]
-            threshold_data["SpO2 <="] = [lines[i+2].strip(),lines[i+12].strip(),lines[i+18].strip()]
-        
+            threshold_data["SpO2 >"] = [
+                lines[i+1].strip(), lines[i+11].strip(), lines[i+17].strip()]
+            threshold_data["SpO2 <="] = [
+                lines[i+2].strip(), lines[i+12].strip(), lines[i+18].strip()]
+
         if "Pulse Rate Threshold" in line:
-            threshold_data["PR >"] = [lines[i+1].strip(),lines[i+11].strip(),lines[i+17].strip()]
-            threshold_data["PR <"] = [lines[i+2].strip(),lines[i+12].strip(),lines[i+18].strip()]
-    
+            threshold_data["PR >"] = [
+                lines[i+1].strip(), lines[i+11].strip(), lines[i+17].strip()]
+            threshold_data["PR <"] = [
+                lines[i+2].strip(), lines[i+12].strip(), lines[i+18].strip()]
+
     return threshold_data
 
 
-def extract_summary_pdf():
+def extract_summary_pdf(pdf_path):
     # pdf_path = r"C:\Users\Admin\Documents\STM sleep\1905Hari\EMAY SpO2-20250515-065705.pdf"
-    pdf_path = r"C:\Users\Admin\Downloads\EMAY SpO2-20250522-233014.pdf"
+    # pdf_path = r"C:\Users\Srinivas\Documents\Sleep_Stage_Detection\1905Hari\EMAY SpO2-20250515-065705.pdf"
 
     doc = fitz.open(pdf_path)
     all_text = []
@@ -120,8 +129,8 @@ def extract_summary_pdf():
         all_text.append(text)
 
     lines = "\n".join(all_text).splitlines()
-    lines = [line.strip() for line in lines if line.strip()]  # Clean up and remove empty lines
-
+    lines = [line.strip() for line in lines if line.strip()
+             ]  # Clean up and remove empty lines
 
     personal_info = give_personal_information(lines)
     metrics = extract_spo2_pr_metrics(lines)
@@ -129,12 +138,13 @@ def extract_summary_pdf():
     odi_info = extract_odi_info(lines)
     thresholds = extract_thresholds(lines)
 
-    return{
-        "personal_info":personal_info,
-        "spo2_pr_metrics":metrics,
-        "spo2_summary":spo2_summary,
-        "odi_info":odi_info,
-        "thresholds":thresholds,
+    return {
+        "personal_info": personal_info,
+        "spo2_pr_metrics": metrics,
+        "spo2_summary": spo2_summary,
+        "odi_info": odi_info,
+        "thresholds": thresholds,
     }
 
-print(extract_summary_pdf())
+
+# print(extract_summary_pdf())
