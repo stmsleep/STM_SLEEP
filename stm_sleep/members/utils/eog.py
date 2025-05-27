@@ -5,7 +5,7 @@ from scipy.interpolate import interp1d
 
 def process_sensor_file(file_path):
     """Parses and structures sensor data from a .txt file."""
-    df = pd.read_csv(file_path,delimiter='\t',engine='python')
+    df = pd.read_csv(file_path,delimiter='\t',engine='python',on_bad_lines='skip')
 
     df = df.dropna(subset=["Timestamp [us]", "QVAR [LSB]"])
 
