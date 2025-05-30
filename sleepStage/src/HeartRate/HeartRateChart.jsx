@@ -1,6 +1,6 @@
 import React from "react";
 import Plot from "react-plotly.js";
-// import "./HeartRateChart.css";
+
 
 export default function HeartRateChart({ prBpm, times }) {
   return (
@@ -39,8 +39,8 @@ export default function HeartRateChart({ prBpm, times }) {
         }}
         config={{
           responsive: true,
-          scrollZoom: true,
           displayModeBar: true,
+          displaylogo:false,
         }}
         style={{ width: "100%", height: "500px" }}
       />

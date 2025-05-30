@@ -256,7 +256,7 @@ const Summary = () => {
             <table
               border="1"
               cellPadding="5"
-              style={{ width: "50%", borderCollapse: "collapse" }}
+         
             >
               <thead>
                 <tr>

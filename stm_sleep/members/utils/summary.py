@@ -130,7 +130,7 @@ def extract_summary_pdf(pdf_path):
 
     lines = "\n".join(all_text).splitlines()
     lines = [line.strip() for line in lines if line.strip()
-             ]  # Clean up and remove empty lines
+            ]
 
     personal_info = give_personal_information(lines)
     metrics = extract_spo2_pr_metrics(lines)

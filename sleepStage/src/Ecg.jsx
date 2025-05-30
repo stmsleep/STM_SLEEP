@@ -11,24 +11,23 @@ export default function ECG() {
   const [isLoading, setIsLoading] = useState(false);
   const [totalMinutes, setTotalMinutes] = useState(0);
 
-  // Set the page size to 14,400 (1 minute)
   const pageSize = 14400;
 
   useEffect(() => {
     async function fetchPoints() {
       setIsLoading(true);
       try {
-        const response = await axios.get("http://localhost:8000/process_ecg/");
+        const response = await axios.get("http://localhost:8000/process_ecg/",{
+          withCredentials:true,
+        });
         if (response.status === 200) {
           const { times, data_corrected } = response.data;
           console.log("Total points:", times.length);
           setData({ times, data_corrected });
-          // Show first page
           setDisplayedData({
             times: times.slice(0, pageSize),
             data_corrected: data_corrected.slice(0, pageSize),
           });
-          // Calculate total minutes
           setTotalMinutes(Math.ceil(times.length / pageSize));
           setCurrentPage(0);
         }
@@ -95,8 +94,8 @@ export default function ECG() {
             }}
             config={{
               responsive: true,
-              scrollZoom: true,
               displayModeBar: true,
+              displaylogo:false,
             }}
             style={{ width: "100%", height: "500px" }}
           />
