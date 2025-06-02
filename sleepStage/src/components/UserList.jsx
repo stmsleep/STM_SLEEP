@@ -3,7 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "./UserList.css";
 
-export default function UserList() {
+export default function UserList({onUserSelected}) {
   const [users, setUsers] = useState([]);
   const navigate = useNavigate();
   const fetchUsers = async () => {
@@ -24,7 +24,8 @@ export default function UserList() {
         { username },
         { withCredentials: true }
       );
-      navigate("/summary");
+      onUserSelected();
+      // navigate("/summary");
     } catch (err) {
       console.error("Error activating user :", err);
     }

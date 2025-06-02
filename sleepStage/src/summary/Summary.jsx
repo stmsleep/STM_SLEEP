@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import "./summary.css";
 import Spinner from "../spinner/Spinner";
@@ -255,7 +256,7 @@ const Summary = () => {
             <table
               border="1"
               cellPadding="5"
-              style={{ width: "50%", borderCollapse: "collapse" }}
+         
             >
               <thead>
                 <tr>

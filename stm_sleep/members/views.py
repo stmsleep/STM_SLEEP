@@ -1,17 +1,14 @@
-from django.http import JsonResponse, FileResponse
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.core.files.uploadedfile import UploadedFile
 import os
-import re
-
-from tempfile import NamedTemporaryFile
-from .utils.heart_rate import convert_csv_to_edf, get_heart_data_with_time
+from .utils.heart_rate import get_heart_data_with_time
 from .utils.eog import process_sensor_file
 from .utils.summary import extract_summary_pdf
+from .utils.ecg import process_ecg_file
 import traceback
 import json
-path = r"C:\Users\Srinivas\Documents\sleep_data"
 
+path = r"C:\Users\Admin\Documents\STM sleep"
 
 @csrf_exempt
 def display_users(request):
@@ -43,7 +40,7 @@ def set_active_user(request):
             if not username:
                 return JsonResponse({'error': 'Username is required'}, status=400)
 
-            base_dir = r"C:\Users\Srinivas\Documents\sleep_data"
+            base_dir = r"C:\Users\Admin\Documents\STM sleep"
             user_dir = os.path.join(base_dir, username)
 
             if not os.path.exists(user_dir):
@@ -64,6 +61,8 @@ def set_active_user(request):
     return JsonResponse({'error': 'Invalid request method'}, status=400)
 
 
+
+
 @csrf_exempt
 def upload_csv(request):
     active_user_dir = request.session.get('username')  # directory path stored
@@ -80,23 +79,12 @@ def upload_csv(request):
         return JsonResponse({'error': 'CSV file not found at path.'}, status=404)
 
     try:
-        # Optionally copy to a temp file to keep logic similar
-        with open(file_path, 'rb') as original_csv, NamedTemporaryFile(suffix='.csv', delete=False) as temp_csv:
-            temp_csv.write(original_csv.read())
-            temp_csv_path = temp_csv.name
 
-        # Your original logic
-        edf_path = convert_csv_to_edf(temp_csv_path)
-        pr_data, times = get_heart_data_with_time(edf_path)
+        result = get_heart_data_with_time(file_path)
 
-        os.remove(temp_csv_path)
-        os.remove(edf_path)
+        print("Type of Heart Data ", type(result))
 
-        return JsonResponse({
-            'message': 'CSV processed successfully.',
-            'pr_bpm': pr_data.tolist()[0],
-            'times': times.tolist()
-        })
+        return JsonResponse(result,status=200)
 
     except Exception as e:
         print("Error in upload_csv view:", e)
@@ -106,11 +94,7 @@ def upload_csv(request):
 @csrf_exempt
 def process_eog(request):
 
-    # file_path = r"C:\Users\Srinivas\Documents\Sleep_Stage_Detection\1905Hari\user_1905Hari_eog_000.txt"
     active_user = request.session.get('username')
-    print("Session keys:", request.session.keys())
-    print("Username in session:", request.session.get('username'))
-    print("Files in session:", request.session.get('files'))
     file_path = None
     if active_user:
         print(request.session['files'])
@@ -121,12 +105,10 @@ def process_eog(request):
                 break
 
     try:
-        with open(file_path, 'rb') as original_txt, NamedTemporaryFile(delete=False, suffix=".txt") as temp_txt:
 
-            temp_txt.write(original_txt.read())
-            temp_txt_path = temp_txt.name
-
-            processed_data = process_sensor_file(temp_txt_path)
+            processed_data = process_sensor_file(file_path)
+            print(len(processed_data))
+            print("Type of EOG",type(processed_data))
             return JsonResponse(processed_data, safe=False)
 
     except Exception as e:
@@ -149,3 +131,29 @@ def load_summary_pdf(request):
             return JsonResponse(result)
         except Exception as e:
             return JsonResponse({"Error": str(e)}, status=500)
+        
+
+@csrf_exempt
+def process_ecg(request):
+    active_user = request.session.get('username')
+
+    if not active_user:
+        traceback.print_exc()
+        return JsonResponse({"Error": "No active user found"}, status=400)
+
+    try:
+        # Identify ECG TXT file (assuming you saved it in session['files'])
+        txt_files = [f for f in request.session.get('files', []) if f.endswith("ecg_000.txt")]
+        if not txt_files:
+            return JsonResponse({"Error": "ECG TXT file not found"}, status=404)
+
+        file_path = os.path.join(active_user, txt_files[0])
+        
+        result = process_ecg_file(file_path)
+        
+        return result
+
+    except Exception as e:
+        traceback.print_exc()
+        return JsonResponse({"Error": str(e)}, status=500)
+

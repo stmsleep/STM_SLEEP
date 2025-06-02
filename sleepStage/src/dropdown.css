@@ -1,0 +1,35 @@
+
+.chart-container label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151; /* Gray-700 */
+}
+
+.chart-container select {
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db; /* Gray-300 */
+  background-color: white;
+  color: #374151; /* Gray-700 */
+  font-size: 14px;
+  font-weight: 500;
+  appearance: none; /* Remove default arrow for consistent style */
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.chart-container select:focus {
+  outline: none;
+  border-color: #3b82f6; /* Blue-500 */
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); /* Blue focus ring */
+}
+
+.chart-container select:hover {
+  border-color: #9ca3af; /* Gray-400 */
+}
+
+.chart-container select option {
+  padding: 8px;
+  background-color: white;
+  color: #374151;
+}

@@ -1,3 +1,4 @@
+
 import axios from "axios";
 import React, { useEffect, useState } from "react";
 import HeartRateChart from "./HeartRateChart";
@@ -6,6 +7,7 @@ import Spinner from "../spinner/Spinner";
 
 export default function CSVUploader() {
   const [prBpm, setprBpm] = useState([]);
+  const [spo2,setspo2] = useState([]);
   const [times, setTimes] = useState([]);
   const [message, setMessage] = useState("");
 
@@ -19,15 +21,17 @@ export default function CSVUploader() {
           withCredentials: true,
         });
 
-        console.log("response: ", response.data.pr_bpm);
+        const { time, spo2, pr_bpm } = response.data;
 
         if (response.status === 200) {
-          setprBpm(response.data.pr_bpm || []);
-          setTimes(response.data.times || []);
+          setprBpm(pr_bpm || []);
+          setTimes(time || []);
+          setspo2(spo2||[]);
         } else {
           setMessage("Unexpected response");
         }
       } catch (error) {
+        console.log(error);
         setMessage(error.response?.data?.error || "Upload failed");
       }
       setIsLoading(false);
@@ -35,18 +39,22 @@ export default function CSVUploader() {
     fetchPoints();
   }, []);
 
+
   return (
     <div className="uploader-container">
-      <h2>Pulse Rate(bpm)</h2>
 
       {isLoading && <Spinner />}
 
       <p className="csv-uploader-message" aria-live="polite">
         {message}
       </p>
-
+      <h2>PR BPM Chart</h2>
       {prBpm.length > 0 && times.length > 0 && (
         <HeartRateChart prBpm={prBpm} times={times} />
+      )}
+      <h2>SpO2 Chart</h2>
+      {prBpm.length > 0 && times.length > 0 && (
+        <HeartRateChart prBpm={spo2} times={times} />
       )}
     </div>
   );
