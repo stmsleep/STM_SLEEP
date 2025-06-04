@@ -1,35 +1,52 @@
-import React, { useState } from 'react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+// In Login.js
+import React, { useState } from "react";
+import axios from "axios";
 
-function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const navigate=useNavigate();
+export default function Login({ onLoginSuccess }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     try {
-      const res = await axios.post('http://127.0.0.1:8000/api/login/', {
-        email,
-        password,
-      });
-      console.log('Login successful:', res.data);
-      localStorage.setItem('token', res.data.access);
-      navigate('/userlist')
+      const response = await axios.post(
+        "http://localhost:8000/api/login/",
+        { email, password },
+        { withCredentials: true }
+      );
+
+      if (response.status === 200) {
+        setMessage("Login successful!");
+        onLoginSuccess();
+      }
     } catch (error) {
-      console.error('Login failed:', error.response.data);
-      alert('Invalid credentials');
+      setMessage("Login failed. Please try again.");
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" required />
-      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" required />
-      <button type="submit">Login</button>
-    </form>
+    <div>
+      <h2>Login</h2>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="email"
+          value={email}
+          placeholder="Email"
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        <input
+          type="password"
+          value={password}
+          placeholder="Password"
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+        <button type="submit">Login</button>
+      </form>
+      {message && <p>{message}</p>}
+    </div>
   );
 }
-
-export default Login;

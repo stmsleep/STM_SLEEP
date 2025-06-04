@@ -1,4 +1,6 @@
+import dropbox
 import fitz  # PyMuPDF
+from django.conf import settings
 
 
 def give_personal_information(lines):
@@ -115,10 +117,6 @@ def extract_thresholds(lines):
 
     return threshold_data
 
-
-import dropbox
-import fitz  # PyMuPDF
-from django.conf import settings
 
 def extract_summary_pdf(dropbox_path):
     # Connect to Dropbox using access token

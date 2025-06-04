@@ -9,7 +9,9 @@ export default function UserList({onUserSelected}) {
 
     const fetchUsers = async () => {
     try {
-      const res = await axios.get("http://localhost:8000/list_user_folders/");
+      const res = await axios.get("http://localhost:8000/list_user_folders/",{
+        withCredentials:true
+      });
       console.log(res.data.folders);
       setUsers(res.data.folders);
     } catch (err) {

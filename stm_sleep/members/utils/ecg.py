@@ -1,11 +1,20 @@
 import pandas as pd
 from django.http import JsonResponse
+import dropbox
+from io import StringIO
 from scipy.signal import butter,filtfilt
 import numpy as np
+from django.conf import settings
 
-def process_ecg_file(file_path):
+def process_ecg_file(dropbox_path):
 
-    df = pd.read_csv(file_path, sep='\t')
+    dbx= dropbox.Dropbox(settings.DROPBOX_ACCESS_TOKEN)
+
+    metadata,response = dbx.files_download(dropbox_path)
+
+    file_text = response.content.decode("utf-8")
+
+    df = pd.read_csv(StringIO(file_text), sep='\t')
 
     # Check if the required column exists
     channel_name = 'QVAR [LSB]'
