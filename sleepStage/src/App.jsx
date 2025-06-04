@@ -1,6 +1,7 @@
 import "./App.css";
 import CSVUploader from "./HeartRate/CSVUploader";
 import EOGUploader from "./EOG/EOGUploader";
+import Login from "./components/Login";
 import {
   Routes,
   Route,
@@ -17,7 +18,7 @@ import ECG from "./Ecg";
 function Layout() {
   const location = useLocation();
 
-  const showNavbar = location.pathname !== "/";
+  const showNavbar = location.pathname !== "/"  && location.pathname !== "/login";
 
   return (
     <div className="app-wrapper">
@@ -43,18 +44,18 @@ function App() {
   };
 
   return (
-    <Routes>
-      <Route path="/" element={<Layout/>}>
-        <Route
-          index
-          element={<UserList onUserSelected={handleUserSelected} />}
-        />
+  <Routes>
+    {/* Login page at root */}
+      <Route path="/" element={<Login />} />
+    {/* Protected routes inside layout */}
+      <Route path="/" element={<Layout />}>
+        <Route path="userlist" element={<UserList onUserSelected={handleUserSelected} />} />
         <Route path="summary" element={<Summary />} />
         <Route path="heartrate" element={<CSVUploader />} />
         <Route path="eog" element={<EOGUploader />} />
         <Route path="ecg" element={<ECG />} />
       </Route>
-    </Routes>
+  </Routes>
   );
 }
 
