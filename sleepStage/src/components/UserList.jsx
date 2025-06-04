@@ -1,35 +1,40 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
 import "./UserList.css";
 
 export default function UserList({onUserSelected}) {
   const [users, setUsers] = useState([]);
-  const navigate = useNavigate();
-  const fetchUsers = async () => {
+
+  useEffect(() => {
+
+    const fetchUsers = async () => {
     try {
-      const res = await axios.get("http://localhost:8000/display_users/");
-      setUsers(res.data.users);
+      const res = await axios.get("http://localhost:8000/list_user_folders/");
+      console.log(res.data.folders);
+      setUsers(res.data.folders);
     } catch (err) {
       console.error("Error fetching users :", err);
     }
   };
-  useEffect(() => {
+
     fetchUsers();
   }, []);
-  const onUserClick = async (username) => {
-    try {
-      await axios.post(
-        "http://localhost:8000/set_active_user/",
-        { username },
-        { withCredentials: true }
-      );
-      onUserSelected();
-      // navigate("/summary");
-    } catch (err) {
-      console.error("Error activating user :", err);
+
+  async function handleSelect(user){
+    try{
+      const res = await axios.post("http://localhost:8000/set_active_user/",{
+        "folder_clicked":user
+      },{withCredentials:true})
+      if(res.status===200){
+    
+        onUserSelected();
     }
-  };
+    }catch(err){
+      console.log("ERRRR");
+    }
+  }
+  
+
   return (
     <div className="user-list-container">
       <h2>Users</h2>
@@ -37,7 +42,7 @@ export default function UserList({onUserSelected}) {
         {users.map((user) => (
           <div
             key={user}
-            onClick={() => onUserClick(user)}
+            onClick={()=>handleSelect(user)}
             className="user-box"
           >
             <div className="user-name">{user}</div>
