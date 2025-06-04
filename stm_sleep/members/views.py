@@ -23,7 +23,7 @@ from django.utils.decorators import method_decorator
 
 User = get_user_model()
 
-@method_decorator(csrf_exempt, name='dispatch')  
+@method_decorator(csrf_exempt, name='dispatch') 
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -152,6 +152,38 @@ def set_active_user(request):
 
     return JsonResponse({'error': 'Invalid request method'}, status=400)
 
+
+@csrf_exempt
+def upload_folder(request):
+    print("Cookies:", request.COOKIES)
+    print("Session:", request.session.items())
+    user = request.session.get("user")
+    print("User:     ",user)
+    
+    if request.method == 'POST':
+        username = request.session.get("user")
+        print("Session username:", username)
+
+        if not username:
+            return JsonResponse({'error': 'User not authenticated'}, status=400)
+
+        try:
+            dbx = dropbox.Dropbox(settings.DROPBOX_ACCESS_TOKEN)
+
+            for key, file_obj in request.FILES.items():
+                file_path = file_obj.name
+                dropbox_path = f"/stmpsleep/{username}/{file_path}"
+
+                print(f"Uploading to Dropbox: {dropbox_path}")
+                dbx.files_upload(file_obj.read(), dropbox_path, mode=dropbox.files.WriteMode.overwrite)
+
+            return JsonResponse({'message': 'Folder uploaded successfully'})
+        
+        except Exception as e:
+            traceback.print_exc()
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Invalid request method'}, status=400)
 
 
 @csrf_exempt

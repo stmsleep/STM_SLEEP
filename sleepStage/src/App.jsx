@@ -15,6 +15,7 @@ import {
 import Summary from "./summary/Summary";
 import UserList from "./components/UserList";
 import ECG from "./Ecg";
+import UploadFolder from "./components/UploadFolder";
 
 function Layout() {
   const location = useLocation();
@@ -49,6 +50,12 @@ function Layout() {
           >
             ECG
           </NavLink>
+          <NavLink
+            to="/upload"
+            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+          >
+            Upload Folder
+          </NavLink>
         </nav>
       )}
       <Outlet />
@@ -79,6 +86,7 @@ function App() {
         <Route path="heartrate" element={<CSVUploader />} />
         <Route path="eog" element={<EOGUploader />} />
         <Route path="ecg" element={<ECG />} />
+        <Route path="upload" element={<UploadFolder/>}></Route>
       </Route>
     </Routes>
   );

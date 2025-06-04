@@ -4,6 +4,7 @@ from .views import LoginView
 
 urlpatterns = [path('api/login/', LoginView.as_view(), name='login'),
     path('list_user_folders/',views.list_user_folders,name='list_user_folders'),
+    path('upload_folder/',views.upload_folder),
     path('set_active_user/', views.set_active_user, name='set_active_user'),
     path('upload_csv/', views.heart_rate, name='upload_csv'),
     path('process_eog/',views.process_eog,name='process_eog'),
