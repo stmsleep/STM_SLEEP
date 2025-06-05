@@ -18,7 +18,7 @@ from django.contrib.auth import authenticate, get_user_model
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.utils.decorators import method_decorator
-
+from .utils.refresh_token import get_dropbox_client
 
 User = get_user_model()
 
@@ -54,7 +54,7 @@ class LoginView(APIView):
                 username=username, email=email, password=password)
 
             # Create Dropbox folder for new user
-            dbx = dropbox.Dropbox(settings.DROPBOX_ACCESS_TOKEN)
+            dbx = get_dropbox_client()
             folder_path = f"/STM-Sleep/{user.username}"
             try:
                 dbx.files_create_folder_v2(folder_path)
@@ -80,7 +80,7 @@ def list_user_folders(request):
         return JsonResponse({'error': "Error"}, status=500)
 
     try:
-        dbx = dropbox.Dropbox(settings.DROPBOX_ACCESS_TOKEN)
+        dbx = get_dropbox_client()
 
         print("Printing root folder entries...")
         # result = dbx.files_list_folder("")
@@ -111,7 +111,7 @@ def set_active_user(request):
             if not folder:
                 return JsonResponse({'error': 'Username is required'}, status=400)
 
-            dbx = dropbox.Dropbox(settings.DROPBOX_ACCESS_TOKEN)
+            dbx = get_dropbox_client()
             user = request.session["user"]
             base_dir = f"/STM-Sleep/{user}/"
             base_dir += folder
@@ -161,7 +161,7 @@ def set_active_user(request):
     return JsonResponse({'error': 'Invalid request method'}, status=400)
 
 
-'''@csrf_exempt
+@csrf_exempt
 def upload_folder(request):
     print("Cookies:", request.COOKIES)
     print("Session:", request.session.items())
@@ -176,7 +176,7 @@ def upload_folder(request):
             return JsonResponse({'error': 'User not authenticated'}, status=400)
 
         try:
-            dbx = dropbox.Dropbox(settings.DROPBOX_ACCESS_TOKEN)
+            dbx = get_dropbox_client()
 
             for key, file_obj in request.FILES.items():
                 file_path = file_obj.name
@@ -193,7 +193,7 @@ def upload_folder(request):
             return JsonResponse({'error': str(e)}, status=500)
 
     return JsonResponse({'error': 'Invalid request method'}, status=400)
-'''
+
 
 
 '''@csrf_exempt
@@ -236,7 +236,7 @@ def upload_folder(request):
         if not files or not paths or len(files) != len(paths):
             return JsonResponse({'error': 'Invalid file data'}, status=400)
 
-        dbx = dropbox.Dropbox(settings.DROPBOX_ACCESS_TOKEN)
+        dbx = get_dropbox_client()
 
         try:
             for file_obj, relative_path in zip(files, paths):
@@ -298,10 +298,12 @@ def process_eog(request):
 @csrf_exempt
 def load_summary_pdf(request):
     active_folder = request.session.get('files')
+    
     if active_folder:
         print(1)
         print(active_folder)
         pdf_path = active_folder['pdf_summary']
+        print("From load summary pdf :",pdf_path)
         print(pdf_path)
         print(2)
         try:
@@ -331,3 +333,54 @@ def process_ecg(request):
     except Exception as e:
         traceback.print_exc()
         return JsonResponse({"Error": str(e)}, status=500)
+
+
+
+# Dropbox token creation
+
+#https://www.dropbox.com/oauth2/authorize?client_id=YOUR_APP_KEY&response_type=code&redirect_uri=YOUR_REDIRECT_URI&token_access_type=offline
+#this is url to get refresh token at first
+
+import requests
+from django.conf import settings
+from django.shortcuts import redirect
+from django.http import HttpResponse
+from django.utils import timezone
+from datetime import timedelta
+from .models import DropboxToken
+
+def dropbox_oauth_callback(request):
+    code = request.GET.get('code')
+    if not code:
+        return HttpResponse("No code provided", status=400)
+
+    url = "https://api.dropbox.com/oauth2/token"
+    data = {
+        "code": code,
+        "grant_type": "authorization_code",
+        "client_id": settings.DROPBOX_APP_KEY,
+        "client_secret": settings.DROPBOX_APP_SECRET,
+        "redirect_uri": "http://127.0.0.1:8000/",
+    }
+
+    response = requests.post(url, data=data)
+    if response.status_code == 200:
+        tokens = response.json()
+        access_token = tokens['access_token']
+        refresh_token = tokens['refresh_token']
+        expires_in = tokens.get('expires_in', 14400)
+
+        expires_at = timezone.now() + timedelta(seconds=expires_in)
+
+        DropboxToken.objects.update_or_create(
+            id=1,
+            defaults={
+                'access_token': access_token,
+                'refresh_token': refresh_token,
+                'expires_at': expires_at
+            }
+        )
+
+        return HttpResponse("Dropbox tokens saved successfully.")
+    else:
+        return HttpResponse(f"Error: {response.text}", status=500)

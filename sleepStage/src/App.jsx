@@ -20,7 +20,7 @@ import UploadFolder from "./components/UploadFolder";
 function Layout() {
   const location = useLocation();
 
-  const showNavbar = location.pathname !== "/" && location.pathname !== "/login";
+  const showNavbar = location.pathname !== "/" && location.pathname !== "/login" && location.pathname !== "/userlist";
 
   return (
     <div className="app-wrapper">

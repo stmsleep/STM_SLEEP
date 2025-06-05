@@ -96,7 +96,6 @@ export default function UploadFolder() {
   const handleUpload = async () => {
     const formData = new FormData();
     files.forEach((file) => {
-      // Append both the file and the relative path!
       formData.append("files", file);
       console.log(file.webkitRelativePath);
       formData.append("paths", file.webkitRelativePath);

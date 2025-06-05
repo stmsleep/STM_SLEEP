@@ -5,10 +5,11 @@ from io import StringIO
 from scipy.signal import butter,filtfilt
 import numpy as np
 from django.conf import settings
+from .refresh_token import get_dropbox_client
 
 def process_ecg_file(dropbox_path):
 
-    dbx= dropbox.Dropbox(settings.DROPBOX_ACCESS_TOKEN)
+    dbx= get_dropbox_client()
 
     metadata,response = dbx.files_download(dropbox_path)
 

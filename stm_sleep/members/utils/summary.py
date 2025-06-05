@@ -1,6 +1,7 @@
 import dropbox
 import fitz  # PyMuPDF
 from django.conf import settings
+from .refresh_token import get_dropbox_client
 
 
 def give_personal_information(lines):
@@ -120,7 +121,7 @@ def extract_thresholds(lines):
 
 def extract_summary_pdf(dropbox_path):
     # Connect to Dropbox using access token
-    dbx = dropbox.Dropbox(settings.DROPBOX_ACCESS_TOKEN)
+    dbx = get_dropbox_client()
 
     # Download the file from Dropbox
     metadata, response = dbx.files_download(dropbox_path)

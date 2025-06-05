@@ -2,10 +2,11 @@ import dropbox # type: ignore
 import io
 from django.conf import settings
 import pandas as pd
+from .refresh_token import get_dropbox_client
 
 def process_sensor_file(dropbox_path):
     
-    dbx = dropbox.Dropbox(settings.DROPBOX_ACCESS_TOKEN)
+    dbx = get_dropbox_client()
 
     metadata,response = dbx.files_download(dropbox_path)
 

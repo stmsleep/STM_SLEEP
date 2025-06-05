@@ -4,7 +4,10 @@ import "./UserList.css";
 
 export default function UserList({onUserSelected}) {
   const [users, setUsers] = useState([]);
-
+  const [files, setFiles] = useState([]);
+  const [isFileUploaded,setIsFileUploaded] = useState(false);
+  
+  // user list handlings
   useEffect(() => {
 
     const fetchUsers = async () => {
@@ -20,7 +23,7 @@ export default function UserList({onUserSelected}) {
   };
 
     fetchUsers();
-  }, []);
+  }, [isFileUploaded]);
 
   async function handleSelect(user){
     try{
@@ -35,6 +38,37 @@ export default function UserList({onUserSelected}) {
       console.log("ERRRR");
     }
   }
+  // end of user list handlings
+
+  //file upload handlings
+    const handleChange = (e) => {
+      setFiles([...e.target.files]);
+    };
+    const handleUpload = async () => {
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append("files", file);
+        console.log(file.webkitRelativePath);
+        formData.append("paths", file.webkitRelativePath);
+      });
+
+      try {
+        const res = await axios.post(
+          "http://localhost:8000/upload_folder/",
+          formData,
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+            withCredentials: true,
+          }
+        );
+        setIsFileUploaded(!isFileUploaded);
+        alert(res.data.message);
+      } catch (err) {
+        console.error(err);
+        alert("Upload failed");
+      }
+    };
+  //end of file upload handlings
   
 
   return (
@@ -51,6 +85,20 @@ export default function UserList({onUserSelected}) {
           </div>
         ))}
       </div>
+        
+        
+        <div>
+          <input
+            type="file"
+            webkitdirectory="true"
+            directory=""
+            multiple
+            onChange={handleChange}
+          />
+          <button onClick={handleUpload}>Upload Folder</button>
+      </div>
+      
+
     </div>
   );
 }

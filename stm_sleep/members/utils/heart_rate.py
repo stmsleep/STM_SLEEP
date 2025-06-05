@@ -3,9 +3,10 @@ import numpy as np
 import dropbox
 import io
 from django.conf import settings
+from .refresh_token import get_dropbox_client
 
 def get_heart_data_with_time(dropbox_path):
-    dbx = dropbox.Dropbox(settings.DROPBOX_ACCESS_TOKEN)
+    dbx = get_dropbox_client()
 
     metadata, response = dbx.files_download(dropbox_path)
 
