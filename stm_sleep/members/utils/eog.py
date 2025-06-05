@@ -1,11 +1,17 @@
-# utils/signal_processor.py
+import dropbox # type: ignore
+import io
+from django.conf import settings
 import pandas as pd
-import numpy as np
-from scipy.interpolate import interp1d
+from .refresh_token import get_dropbox_client
 
-def process_sensor_file(file_path):
-    """Parses and structures sensor data from a .txt file."""
-    df = pd.read_csv(file_path,delimiter='\t')
+def process_sensor_file(dropbox_path):
+    
+    dbx = get_dropbox_client()
+
+    metadata,response = dbx.files_download(dropbox_path)
+
+    file_text = response.content.decode("utf-8")
+    df = pd.read_csv(io.StringIO(file_text),delimiter='\t')
 
     df = df.dropna(subset=["Timestamp [us]", "QVAR [LSB]"])
 

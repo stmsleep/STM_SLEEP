@@ -1,4 +1,7 @@
+import dropbox
 import fitz  # PyMuPDF
+from django.conf import settings
+from .refresh_token import get_dropbox_client
 
 
 def give_personal_information(lines):
@@ -116,11 +119,18 @@ def extract_thresholds(lines):
     return threshold_data
 
 
-def extract_summary_pdf(pdf_path):
-    # pdf_path = r"C:\Users\Admin\Documents\STM sleep\1905Hari\EMAY SpO2-20250515-065705.pdf"
-    # pdf_path = r"C:\Users\Srinivas\Documents\Sleep_Stage_Detection\1905Hari\EMAY SpO2-20250515-065705.pdf"
+def extract_summary_pdf(dropbox_path):
+    # Connect to Dropbox using access token
+    dbx = get_dropbox_client()
 
-    doc = fitz.open(pdf_path)
+    # Download the file from Dropbox
+    metadata, response = dbx.files_download(dropbox_path)
+
+    # Read content into memory
+    pdf_bytes = response.content
+
+    # Load PDF directly from bytes
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     all_text = []
 
     for page_num in range(len(doc)):
@@ -129,9 +139,9 @@ def extract_summary_pdf(pdf_path):
         all_text.append(text)
 
     lines = "\n".join(all_text).splitlines()
-    lines = [line.strip() for line in lines if line.strip()
-            ]
+    lines = [line.strip() for line in lines if line.strip()]
 
+    # Use your existing parsing functions
     personal_info = give_personal_information(lines)
     metrics = extract_spo2_pr_metrics(lines)
     spo2_summary = extract_spo2_summary(lines)
@@ -145,6 +155,7 @@ def extract_summary_pdf(pdf_path):
         "odi_info": odi_info,
         "thresholds": thresholds,
     }
+
 
 
 # print(extract_summary_pdf())

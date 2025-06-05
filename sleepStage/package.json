@@ -22,7 +22,7 @@
     "react-dom": "^19.1.0",
     "react-pdf": "^9.2.1",
     "react-plotly.js": "^2.6.0",
-    "react-router-dom": "^7.6.0",
+    "react-router-dom": "^7.6.2",
     "react-spinners": "^0.17.0"
   },
   "devDependencies": {
