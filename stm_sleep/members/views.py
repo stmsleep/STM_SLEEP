@@ -1,6 +1,5 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-import os
 from .utils.heart_rate import get_heart_data_with_time
 from .utils.eog import process_sensor_file
 from .utils.summary import extract_summary_pdf

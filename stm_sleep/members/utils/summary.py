@@ -1,13 +1,11 @@
-import dropbox
 import fitz  # PyMuPDF
-from django.conf import settings
 from .refresh_token import get_dropbox_client
 
 
 def give_personal_information(lines):
     try:
         personal = {
-            "Name": lines[8],         # Based on the printed output
+            "Name": lines[8],         
             "Age": lines[9],
             "Sex": lines[10],
             "Start time": lines[11],

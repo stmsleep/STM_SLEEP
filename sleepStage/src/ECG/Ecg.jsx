@@ -1,8 +1,8 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
-import Spinner from "./spinner/Spinner";
+import Spinner from "../spinner/Spinner";
 import Plot from "react-plotly.js";
-import './dropdown.css';
+import '../dropdown.css';
 
 export default function ECG() {
   const [data, setData] = useState({ times: [], data_corrected: [] });

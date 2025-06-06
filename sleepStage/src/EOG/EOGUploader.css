@@ -1,4 +1,4 @@
-/* EOGUploader.css */
+EOGUploader.css
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -76,7 +76,7 @@ body {
   max-width: 400px;
   padding: 0.5rem 0.75rem;
   font-size: 1rem;
-  border: 2px solid #d1d5db; /* gray-300 */
+  border: 2px solid #d1d5db; 
   border-radius: 8px;
   cursor: pointer;
   transition: border-color 0.3s ease;
@@ -85,6 +85,6 @@ body {
 
 .txt-uploader-input:hover,
 .txt-uploader-input:focus {
-  border-color: #2563eb; /* blue-600 */
+  border-color: #2563eb; 
   outline: none;
 }

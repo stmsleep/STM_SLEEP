@@ -1,4 +1,3 @@
-import dropbox # type: ignore
 import io
 from django.conf import settings
 import pandas as pd
