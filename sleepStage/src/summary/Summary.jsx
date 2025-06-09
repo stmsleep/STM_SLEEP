@@ -168,7 +168,7 @@ const Summary = () => {
 
   return (
     <div style={{ fontFamily: "Arial, sans-serif", padding: "0" }}>
-      <h1 className = "summary-title">Summary Report</h1>
+      <h1 className = "title">Summary Report</h1>
 
       {isLoading && <Spinner />}
       {error && <p style={{ color: "red" }}>Error: {error}</p>}

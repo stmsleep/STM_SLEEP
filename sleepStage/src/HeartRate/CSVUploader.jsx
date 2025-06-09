@@ -42,20 +42,25 @@ export default function CSVUploader() {
 
   return (
     <div className="uploader-container">
+      <h1 className = "title">PR BPM</h1>
+
 
       {isLoading && <Spinner />}
 
       <p className="csv-uploader-message" aria-live="polite">
         {message}
       </p>
-      <h2>PR BPM Chart</h2>
+
       {prBpm.length > 0 && times.length > 0 && (
         <HeartRateChart prBpm={prBpm} times={times} />
       )}
-      <h2>SpO2 Chart</h2>
+
+      <h1 className = "title">SpO2 Chart</h1>
+      <br />
       {prBpm.length > 0 && times.length > 0 && (
         <HeartRateChart prBpm={spo2} times={times} />
       )}
+
     </div>
   );
 }

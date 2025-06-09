@@ -2,7 +2,7 @@ import axios from "axios";
 import React, { useEffect, useState } from "react";
 import Spinner from "../spinner/Spinner";
 import Plot from "react-plotly.js";
-import '../dropdown.css';
+import "../styles/Ecg.css";
 
 export default function ECG() {
   const [data, setData] = useState({ times: [], data_corrected: [] });
@@ -17,8 +17,8 @@ export default function ECG() {
     async function fetchPoints() {
       setIsLoading(true);
       try {
-        const response = await axios.get("http://localhost:8000/process_ecg/",{
-          withCredentials:true,
+        const response = await axios.get("http://localhost:8000/process_ecg/", {
+          withCredentials: true,
         });
         if (response.status === 200) {
           const { times, data_corrected } = response.data;
@@ -37,6 +37,7 @@ export default function ECG() {
         setIsLoading(false);
       }
     }
+
     fetchPoints();
   }, []);
 
@@ -50,117 +51,58 @@ export default function ECG() {
     setCurrentPage(pageIndex);
   };
 
-  const handleNext = () => {
-    if ((currentPage + 1) * pageSize < data.times.length) {
-      loadPage(currentPage + 1);
-    }
-  };
-
-  const handlePrev = () => {
-    if (currentPage > 0) {
-      loadPage(currentPage - 1);
-    }
-  };
-
-  const handleReset = () => {
-    loadPage(0);
-  };
-
-  const handleMinuteSelect = (event) => {
-    const selectedMinute = parseInt(event.target.value, 10);
-    loadPage(selectedMinute - 1);
-  };
-
   return (
-    <div className="container">
-      <h1>ECG Data</h1>
-      {isLoading && <Spinner />}
-      {!isLoading && (
-        <div className="chart-container">
-          <Plot
-            data={[
-              {
-                x: displayedData.times,
-                y: displayedData.data_corrected,
-                type: "scattergl",
-                mode: "lines",
-              },
-            ]}
-            layout={{
-              title: `ECG - Page ${currentPage + 1}`,
-              xaxis: { title: "Time", showgrid: true },
-              yaxis: { title: "Voltage", showgrid: true },
-              margin: { t: 40, l: 50, r: 40, b: 40 },
-            }}
-            config={{
-              responsive: true,
-              displayModeBar: true,
-              displaylogo:false,
-            }}
-            style={{ width: "100%", height: "500px" }}
-          />
+    <div className="ecg-wrapper">
+      <h1 className="title">ECG Data</h1>
 
-          <div style={{ marginTop: "1rem", display: "flex", gap: "1rem", alignItems: "center" }}>
-            <button
-              onClick={handlePrev}
-              disabled={currentPage === 0}
-              style={{
-                padding: "8px 16px",
-                background: currentPage === 0 ? "#9ca3af" : "#3b82f6",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: currentPage === 0 ? "not-allowed" : "pointer",
+      {isLoading ? (
+        <Spinner />
+      ) : (
+        <>
+        <br />
+          <div className="chart-card">
+            <Plot
+              data={[
+                {
+                  x: displayedData.times,
+                  y: displayedData.data_corrected,
+                  type: "scatter",
+                  mode: "lines",
+                  line: { color: "#2c3e50" },
+                },
+              ]}
+              layout={{
+                title: "ECG Signal",
+                xaxis: { title: "Time" },
+                yaxis: { title: "Amplitude" },
+                margin: { t: 40, r: 30, l: 50, b: 50 },
+                paper_bgcolor: "white",
+                plot_bgcolor: "white",
+                autosize: true,
               }}
-            >
-              Previous 1 Minute
-            </button>
-
-            <button
-              onClick={handleReset}
-              style={{
-                padding: "8px 16px",
-                background: "#3b82f6",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-              }}
-            >
-              Reset
-            </button>
-
-            <button
-              onClick={handleNext}
-              disabled={(currentPage + 1) * pageSize >= data.times.length}
-              style={{
-                padding: "8px 16px",
-                background:
-                  (currentPage + 1) * pageSize >= data.times.length ? "#9ca3af" : "#3b82f6",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor:
-                  (currentPage + 1) * pageSize >= data.times.length
-                    ? "not-allowed"
-                    : "pointer",
-              }}
-            >
-              Next 1 Minute
-            </button>
-
-            <div className="chart-container">
-              <label style={{ marginRight: "0.5rem" }}>Go to Minute:</label>
-              <select value={currentPage + 1} onChange={handleMinuteSelect}>
-                {Array.from({ length: totalMinutes }, (_, index) => (
-                  <option key={index + 1} value={index + 1}>
-                    Minute {index + 1}
-                  </option>
-                ))}
-              </select>
-            </div>
+              style={{ width: "100%", height: "400px" }}
+              config={{ responsive: true,displaylogo: false }}
+            />
           </div>
-        </div>
+
+          <div className="ecg-controls">
+            <label htmlFor="ecg-slider" className="slider-label">
+              Minute: {currentPage + 1} / {totalMinutes}
+            </label>
+            <input
+              id="ecg-slider"
+              type="range"
+              min="1"
+              max={totalMinutes}
+              value={currentPage + 1}
+              onChange={(e) => {
+                const selectedMinute = parseInt(e.target.value, 10);
+                loadPage(selectedMinute - 1);
+              }}
+              className="ecg-slider"
+            />
+          </div>
+        </>
       )}
     </div>
   );
