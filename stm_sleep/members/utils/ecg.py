@@ -1,10 +1,8 @@
 import pandas as pd
 from django.http import JsonResponse
-import dropbox
 from io import StringIO
 from scipy.signal import butter,filtfilt
 import numpy as np
-from django.conf import settings
 from .refresh_token import get_dropbox_client
 
 def process_ecg_file(dropbox_path):

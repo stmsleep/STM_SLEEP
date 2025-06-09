@@ -1,6 +1,7 @@
-// In Login.js
-import React, { useState } from "react";
+import { useState } from "react";
 import axios from "axios";
+import '../styles/login.css';
+import logo from '../assets/logo.png';
 
 export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState("");
@@ -9,14 +10,12 @@ export default function Login({ onLoginSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     try {
       const response = await axios.post(
         "http://localhost:8000/api/login/",
         { email, password },
         { withCredentials: true }
       );
-
       if (response.status === 200) {
         setMessage("Login successful!");
         onLoginSuccess();
@@ -27,26 +26,31 @@ export default function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div>
-      <h2>Login</h2>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="email"
-          value={email}
-          placeholder="Email"
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <input
-          type="password"
-          value={password}
-          placeholder="Password"
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        <button type="submit">Login</button>
-      </form>
-      {message && <p>{message}</p>}
+    <div className="login-wrapper">
+      <div className="login-card">
+        <img src={logo} style={{ width: '170px', height: '100px' }} />
+        <h2 className="login-title">Welcome Back</h2>
+        <form className="login-form" onSubmit={handleSubmit}>
+          <input
+            type="email"
+            className="login-input"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <input
+            type="password"
+            className="login-input"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <button type="submit" className="login-button">Login</button>
+        </form>
+        {message && <p className="login-message">{message}</p>}
+      </div>
     </div>
   );
 }

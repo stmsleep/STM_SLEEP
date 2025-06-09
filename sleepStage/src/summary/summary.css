@@ -8,16 +8,19 @@
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
-h1 {
-  font-size: 2.2rem;
-  margin-bottom: 1rem;
+.title {
   text-align: center;
-  color: #1e3a8a;
-  border-bottom: 2px solid #e0e7ff;
-  padding-bottom: 0.5rem;
+  margin: 0;
+  padding: 16px;
+  background-color:#ffffff;
+  border-radius: 5px;
+  color: black;
+  box-shadow:  0 4px 5px rgba(0, 0, 0, 0.05);;
 }
 
-h2 {
+
+
+.section-heading {
   font-size: 1.6rem;
   margin-top: 2.5rem;
   margin-bottom: 1rem;
@@ -26,11 +29,12 @@ h2 {
   padding-left: 12px;
 }
 
-h3 {
+.sub-heading {
   font-size: 1.2rem;
   margin-top: 1.2rem;
   color: #1f2937;
 }
+
 
 input[type="file"] {
   display: block;

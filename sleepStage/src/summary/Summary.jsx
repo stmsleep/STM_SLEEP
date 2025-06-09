@@ -167,8 +167,8 @@ const Summary = () => {
   };
 
   return (
-    <div style={{ fontFamily: "Arial, sans-serif", padding: "20px" }}>
-      <h1>Summary Report</h1>
+    <div style={{ fontFamily: "Arial, sans-serif", padding: "0" }}>
+      <h1 className = "title">Summary Report</h1>
 
       {isLoading && <Spinner />}
       {error && <p style={{ color: "red" }}>Error: {error}</p>}
@@ -176,7 +176,7 @@ const Summary = () => {
       {reportData && (
         <div className="report">
           <section>
-            <h2>Patient Information</h2>
+            <h2 className = "section-heading">Patient Information</h2>
             <table>
               <tbody>
                 <tr>
@@ -225,7 +225,7 @@ const Summary = () => {
             </table>
           </section>
           <section>
-            <h2>SpO2 Summary</h2>
+            <h2 className = "section-heading">SpO2 Summary</h2>
             <table
               border="1"
               cellPadding="5"
@@ -252,7 +252,7 @@ const Summary = () => {
             </table>
           </section>
           <section>
-            <h2>Max, Avg, Min Readings</h2>
+            <h2 className = "section-heading">Max, Avg, Min Readings</h2>
             <table
               border="1"
               cellPadding="5"
@@ -284,7 +284,7 @@ const Summary = () => {
           </section>
           <section className="odi-sections-row">
             <div className="odi-box">
-              <h2>ODI 4%</h2>
+              <h2 className = "section-heading">ODI 4%</h2>
               <table>
                 <tbody>
                   <tr>
@@ -320,7 +320,7 @@ const Summary = () => {
               </p>
             </div>
             <div className="odi-box">
-              <h2>ODI 3%</h2>
+              <h2 className = "section-heading">ODI 3%</h2>
               <table>
                 <tbody>
                   <tr>
@@ -356,8 +356,8 @@ const Summary = () => {
           </section>
           <section className="odi-sections-row">
             <div className="odi-box">
-              <h2>Threshold Data</h2>
-              <h3>SpO2 Threshold: {reportData.thresholdData.threshold}</h3>
+              <h2 className = "section-heading">Threshold Data</h2>
+              <h3 className = "sub-heading">SpO2 Threshold: {reportData.thresholdData.threshold}</h3>
               <table>
                 <thead>
                   <tr>
@@ -378,8 +378,8 @@ const Summary = () => {
               </table>
             </div>
             <div className="odi-box">
-              <h2>Pulse Rate Threshold</h2>
-              <h3>
+              <h2 className = "section-heading">Pulse Rate Threshold</h2>
+              <h3 className = "sub-heading">
                 Definition{" "}
                 <p style={{ display: "inline" }}>
                   {reportData.definitions.threshold},
