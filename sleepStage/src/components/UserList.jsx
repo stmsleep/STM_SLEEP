@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import ibutton from '../assets/i.png';
+import Spinner from "../spinner/Spinner";
 import "../styles/UserList.css";
 
 export default function UserList({ onUserSelected }) {
   const [users, setUsers] = useState([]);
   const [files, setFiles] = useState([]);
   const [isFileUploaded, setIsFileUploaded] = useState(false);
+  const [isSelectingUser, setIsSelectingUser] = useState(false);  // <-- loading state
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -24,6 +26,7 @@ export default function UserList({ onUserSelected }) {
   }, [isFileUploaded]);
 
   const handleSelect = async (user) => {
+    setIsSelectingUser(true);  // show spinner + block UI
     try {
       const res = await axios.post(
         "http://localhost:8000/set_active_user/",
@@ -35,6 +38,8 @@ export default function UserList({ onUserSelected }) {
       }
     } catch (err) {
       console.log("Error selecting user:", err);
+    } finally {
+      setIsSelectingUser(false);
     }
   };
 
@@ -44,10 +49,12 @@ export default function UserList({ onUserSelected }) {
 
   const handleUpload = async () => {
     const formData = new FormData();
-    files.forEach((file) => {
-      formData.append("files", file);
-      formData.append("paths", file.webkitRelativePath);
+    files.forEach((file, idx) => {
+      formData.append(`files_${idx}`, file);  // unique key for each file
+      formData.append(`paths_${idx}`, file.webkitRelativePath);
     });
+    formData.append("file_count", files.length);
+    
 
     try {
       const res = await axios.post("http://localhost:8000/upload_folder/", formData, {
@@ -63,11 +70,17 @@ export default function UserList({ onUserSelected }) {
   };
 
   return (
-    <div className="user-page">
+    <div className="user-page" style={{ position: "relative", pointerEvents: isSelectingUser ? "none" : "auto", opacity: isSelectingUser ? 0.4 : 1 }}>
+      {isSelectingUser && (
+        <div className="spinner-overlay">
+          <Spinner />
+        </div>
+      )}
+
       <header className="user-header">
-        <h1>Select the report </h1>
+        <h1>Select the report</h1>
         <div className="info-container">
-          <img src={ibutton} style={{ width: '24px', height: '24px' }} />
+          <img src={ibutton} style={{ width: '24px', height: '24px' }} alt="info" />
           <span className="tooltip-text">Select a user folder or upload a new one</span>
         </div>
       </header>
@@ -79,7 +92,6 @@ export default function UserList({ onUserSelected }) {
               <span>{user.length > 7 ? `${user.slice(0, 7)}...` : user}</span>
             </div>
           ))}
-
         </section>
 
         <section className="upload-section">
@@ -96,7 +108,6 @@ export default function UserList({ onUserSelected }) {
           </label>
           <button onClick={handleUpload}>Upload Folder</button>
         </section>
-
       </main>
     </div>
   );

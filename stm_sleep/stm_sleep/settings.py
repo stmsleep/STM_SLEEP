@@ -153,3 +153,4 @@ SESSION_COOKIE_HTTPONLY = True
 
 # Increase max request body size to 100MB (adjust as needed)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100 * 1024 * 1024 bytes
+CHUNK_SIZE = 10 * 1024 * 1024

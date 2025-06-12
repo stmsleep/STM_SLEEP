@@ -1,6 +1,9 @@
 import CSVUploader from "./HeartRate/CSVUploader";
 import EOGUploader from "./EOG/EOGUploader";
 import Login from "./components/Login";
+import DashBoard from "./components/DashBoard";
+import LandingPage from "./components/LandingPage";
+
 import {
   Routes,
   Route,
@@ -14,52 +17,65 @@ import Summary from "./summary/Summary";
 import UserList from "./components/UserList";
 import ECG from "./ECG/Ecg";
 
-import './styles/App.css'
-import logo from './assets/logo.png'
+import './styles/App.css';
+import logo from './assets/logo.png';
+
 
 function Layout() {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const showNavbar =
-    location.pathname !== "/" &&
-    location.pathname !== "/login" &&
-    location.pathname !== "/userlist";
+    location.pathname !== "/" && location.pathname !== "/login";
+
+  const handleNav = (path) => {
+    navigate(path, { replace: true });
+  };
+
+  const isActive = (path) => location.pathname === path;
 
   return (
     <div className="app-wrapper">
       {showNavbar && (
         <aside className="sidebar">
-        <img
-            src={logo}
-            alt="Logo"
-            className="sidebar-logo"
-          />          
-        <nav className="navbar">
-            
-            <NavLink
-              to="/summary"
-              className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+          <img src={logo} alt="Logo" className="sidebar-logo" />
+          <nav className="navbar">
+            <button
+              onClick={() => handleNav("/dashboard")}
+              className={`nav-button ${isActive("/dashboard") ? "active" : ""}`}
+            >
+              Dashboard
+            </button>
+            <button
+              onClick={() => handleNav("/summary")}
+              className={`nav-button ${isActive("/summary") ? "active" : ""}`}
             >
               Summary
-            </NavLink>
-            <NavLink
-              to="/heartrate"
-              className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+            </button>
+            <button
+              onClick={() => handleNav("/heartrate")}
+              className={`nav-button ${isActive("/heartrate") ? "active" : ""}`}
             >
               Heart Rate
-            </NavLink>
-            <NavLink
-              to="/eog"
-              className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+            </button>
+            <button
+              onClick={() => handleNav("/eog")}
+              className={`nav-button ${isActive("/eog") ? "active" : ""}`}
             >
               EOG Sensor
-            </NavLink>
-            <NavLink
-              to="/ecg"
-              className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+            </button>
+            <button
+              onClick={() => handleNav("/ecg")}
+              className={`nav-button ${isActive("/ecg") ? "active" : ""}`}
             >
               ECG
-            </NavLink>
+            </button>
+            <button
+              onClick={() => handleNav("/userlist")}
+              className={`nav-button ${isActive("/userlist") ? "active" : ""}`}
+            >
+              Visualize
+            </button>
           </nav>
         </aside>
       )}
@@ -74,18 +90,24 @@ function App() {
   const navigate = useNavigate();
 
   const handleLoginSuccess = () => {
-    navigate("/userlist");
+    navigate("/landingpage",{replace:true});
+  };
+
+  const handleLandingPageNext = () => {
+    navigate("/userlist",{replace:true});
   };
 
   const handleUserSelected = () => {
-    navigate("/summary");
+    navigate("/dashboard",{replace:true});
   };
 
   return (
     <Routes>
       <Route path="/" element={<Login onLoginSuccess={handleLoginSuccess} />} />
+      <Route path="landingpage" element={<LandingPage  onNext={handleLandingPageNext}  /> } />
       <Route path="userlist" element={<UserList onUserSelected={handleUserSelected} />} />
       <Route path="/" element={<Layout />}>
+        <Route path="dashboard" element={<DashBoard/>} />
         <Route path="summary" element={<Summary />} />
         <Route path="heartrate" element={<CSVUploader />} />
         <Route path="eog" element={<EOGUploader />} />

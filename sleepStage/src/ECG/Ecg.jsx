@@ -1,7 +1,7 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
 import Spinner from "../spinner/Spinner";
-import Plot from "react-plotly.js";
+import ReactECharts from "echarts-for-react";
 import "../styles/Ecg.css";
 
 export default function ECG() {
@@ -22,7 +22,6 @@ export default function ECG() {
         });
         if (response.status === 200) {
           const { times, data_corrected } = response.data;
-          console.log("Total points:", times.length);
           setData({ times, data_corrected });
           setDisplayedData({
             times: times.slice(0, pageSize),
@@ -51,6 +50,62 @@ export default function ECG() {
     setCurrentPage(pageIndex);
   };
 
+  const getEChartOption = () => ({
+    title: {
+      text: "ECG Signal",
+      left: "center"
+    },
+    tooltip: {
+      trigger: "axis",
+      axisPointer: {
+        type: "cross"
+      }
+    },
+    xAxis: {
+      type: "category",
+      data: displayedData.times,
+      name: "Time",
+      axisLine: { onZero: false }
+    },
+    yAxis: {
+      type: "value",
+      name: "Amplitude"
+    },
+    series: [
+      {
+        name: "ECG",
+        type: "line",
+        showSymbol: false,
+        data: displayedData.data_corrected,
+        lineStyle: {
+          color: "#2c3e50"
+        }
+      }
+    ],
+    grid: {
+      left: "8%",
+      right: "8%",
+      bottom: "15%"
+    },
+    dataZoom: [
+      {
+        type: 'inside',      // Enables zoom via scroll & drag on chart area
+        zoomOnMouseWheel: true,
+        moveOnMouseWheel: true,
+        moveOnMouseMove: true,
+        throttle: 50,
+      }
+    ],
+    toolbox: {
+      feature: {
+        dataZoom: {
+          yAxisIndex: 'none',
+        },
+        restore: {},   // Adds a reset button
+      },
+    },
+  });
+
   return (
     <div className="ecg-wrapper">
       <h1 className="title">ECG Data</h1>
@@ -59,29 +114,15 @@ export default function ECG() {
         <Spinner />
       ) : (
         <>
-        <br />
+          <br />
           <div className="chart-card">
-            <Plot
-              data={[
-                {
-                  x: displayedData.times,
-                  y: displayedData.data_corrected,
-                  type: "scatter",
-                  mode: "lines",
-                  line: { color: "#2c3e50" },
-                },
-              ]}
-              layout={{
-                title: "ECG Signal",
-                xaxis: { title: "Time" },
-                yaxis: { title: "Amplitude" },
-                margin: { t: 40, r: 30, l: 50, b: 50 },
-                paper_bgcolor: "white",
-                plot_bgcolor: "white",
-                autosize: true,
-              }}
+            <ReactECharts
+              option={getEChartOption()}
               style={{ width: "100%", height: "400px" }}
-              config={{ responsive: true,displaylogo: false }}
+              notMerge={true}
+              lazyUpdate={true}
+              theme={"light"}
+              opts={{ renderer: "canvas" }}
             />
           </div>
 

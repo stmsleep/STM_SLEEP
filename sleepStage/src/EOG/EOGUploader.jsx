@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import Plot from "react-plotly.js";
+import ReactECharts from "echarts-for-react";
 import axios from "axios";
 import Spinner from "../spinner/Spinner";
-import "../styles/Ecg.css"; // Use same style file as ECG
+import "../styles/Ecg.css";
 
 export default function EOGUploader() {
   const [plotData, setPlotData] = useState(null);
@@ -28,7 +28,6 @@ export default function EOGUploader() {
         });
         if (response.status === 200) {
           setPlotData(response.data);
-
           const { time } = response.data;
           setTotalMinutes(Math.ceil(time.length / pageSize));
 
@@ -92,6 +91,44 @@ export default function EOGUploader() {
     </div>
   );
 
+  const getEChartOption = (title, xData, series) => ({
+    renderer: 'canvas',
+    title: { text: title },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'cross',
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: xData,
+    },
+    yAxis: {
+      type: 'value',
+      scale: true,
+    },
+    dataZoom: [
+      {
+        type: 'inside',      // Enables zoom via scroll & drag on chart area
+        zoomOnMouseWheel: true,
+        moveOnMouseWheel: true,
+        moveOnMouseMove: true,
+        throttle: 50,
+      }
+    ],
+    toolbox: {
+      feature: {
+        dataZoom: {
+          yAxisIndex: 'none',
+        },
+        restore: {},   // Adds a reset button
+      },
+    },
+    series: series,
+  });
+  
+
   return (
     <div className="ecg-wrapper">
       <h1 className="title">EOG Data</h1>
@@ -101,25 +138,12 @@ export default function EOGUploader() {
         <>
           {qvarData && (
             <div className="chart-card">
-              <Plot
-                data={[{
-                  x: qvarData.time,
-                  y: qvarData.qvar,
-                  type: "scatter",
-                  mode: "lines",
-                  line: { color: "#2c3e50" },
-                  name: "QVAR",
-                }]}
-                layout={{
-                  title: "QVAR Signal",
-                  xaxis: { title: "Time" },
-                  yaxis: { title: "QVAR" },
-                  margin: { t: 40, r: 30, l: 50, b: 50 },
-                  paper_bgcolor: "white",
-                  plot_bgcolor: "white",
-                }}
-                style={{ width: "100%", height: "400px" }}
-                config={{ responsive: true, displaylogo: false }}
+              <ReactECharts
+                option={getEChartOption("QVAR Signal", qvarData.time, [
+                  
+                  { data: qvarData.qvar, type: 'line', name: 'QVAR', lineStyle: { color: '#2c3e50' } },
+                ])}
+                style={{ height: 400 }}
               />
               {renderSlider("QVAR Minute", qvarPage, (i) => updateQvarSlice(plotData, i))}
             </div>
@@ -127,43 +151,13 @@ export default function EOGUploader() {
 
           {accData && (
             <div className="chart-card">
-              <Plot
-                data={[
-                  {
-                    x: accData.time,
-                    y: accData.a_x,
-                    type: "scatter",
-                    mode: "lines",
-                    name: "A_X",
-                    line: { color: "#2c3e50" },
-                  },
-                  {
-                    x: accData.time,
-                    y: accData.a_y,
-                    type: "scatter",
-                    mode: "lines",
-                    name: "A_Y",
-                    line: { color: "#2980b9" },
-                  },
-                  {
-                    x: accData.time,
-                    y: accData.a_z,
-                    type: "scatter",
-                    mode: "lines",
-                    name: "A_Z",
-                    line: { color: "#27ae60" },
-                  },
-                ]}
-                layout={{
-                  title: "Accelerometer Signal",
-                  xaxis: { title: "Time" },
-                  yaxis: { title: "Acceleration" },
-                  margin: { t: 40, r: 30, l: 50, b: 50 },
-                  paper_bgcolor: "white",
-                  plot_bgcolor: "white",
-                }}
-                style={{ width: "100%", height: "400px" }}
-                config={{ responsive: true, displaylogo: false }}
+              <ReactECharts
+                option={getEChartOption("Accelerometer Signal", accData.time, [
+                  { data: accData.a_x, type: 'line', name: 'A_X', lineStyle: { color: '#2c3e50' } },
+                  { data: accData.a_y, type: 'line', name: 'A_Y', lineStyle: { color: '#2980b9' } },
+                  { data: accData.a_z, type: 'line', name: 'A_Z', lineStyle: { color: '#27ae60' } },
+                ])}
+                style={{ height: 400 }}
               />
               {renderSlider("Accelerometer Minute", accPage, (i) => updateAccSlice(plotData, i))}
             </div>
@@ -171,43 +165,13 @@ export default function EOGUploader() {
 
           {gyroData && (
             <div className="chart-card">
-              <Plot
-                data={[
-                  {
-                    x: gyroData.time,
-                    y: gyroData.g_x,
-                    type: "scatter",
-                    mode: "lines",
-                    name: "G_X",
-                    line: { color: "#2c3e50" },
-                  },
-                  {
-                    x: gyroData.time,
-                    y: gyroData.g_y,
-                    type: "scatter",
-                    mode: "lines",
-                    name: "G_Y",
-                    line: { color: "#c0392b" },
-                  },
-                  {
-                    x: gyroData.time,
-                    y: gyroData.g_z,
-                    type: "scatter",
-                    mode: "lines",
-                    name: "G_Z",
-                    line: { color: "#8e44ad" },
-                  },
-                ]}
-                layout={{
-                  title: "Gyroscope Signal",
-                  xaxis: { title: "Time" },
-                  yaxis: { title: "Gyro" },
-                  margin: { t: 40, r: 30, l: 50, b: 50 },
-                  paper_bgcolor: "white",
-                  plot_bgcolor: "white",
-                }}
-                style={{ width: "100%", height: "400px" }}
-                config={{ responsive: true, displaylogo: false }}
+              <ReactECharts
+                option={getEChartOption("Gyroscope Signal", gyroData.time, [
+                  { data: gyroData.g_x, type: 'line', name: 'G_X', lineStyle: { color: '#2c3e50' } },
+                  { data: gyroData.g_y, type: 'line', name: 'G_Y', lineStyle: { color: '#c0392b' } },
+                  { data: gyroData.g_z, type: 'line', name: 'G_Z', lineStyle: { color: '#8e44ad' } },
+                ])}
+                style={{ height: 400 }}
               />
               {renderSlider("Gyroscope Minute", gyroPage, (i) => updateGyroSlice(plotData, i))}
             </div>

@@ -1,0 +1,15 @@
+.visualize-button {
+    padding: 12px 24px;
+    font-size: 16px;
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.3s ease;
+  }
+  
+  .visualize-button:hover {
+    background-color: #388e3c;
+  }
+  
