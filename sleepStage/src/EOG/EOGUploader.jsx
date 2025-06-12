@@ -24,8 +24,14 @@ export default function EOGUploader() {
       setIsLoading(true);
       try {
         const response = await axios.get("http://localhost:8000/process_eog/", {
+          headers:{
+            'Accept-Encoding': 'gzip',      
+            'Accept': 'application/json'
+          },
+          responseType: 'json',
           withCredentials: true,
         });
+        console.log(response.data)
         if (response.status === 200) {
           setPlotData(response.data);
           const { time } = response.data;

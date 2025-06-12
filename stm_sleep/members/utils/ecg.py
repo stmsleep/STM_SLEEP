@@ -1,43 +1,15 @@
-import pandas as pd
-import numpy as np
-from io import StringIO
-from scipy.signal import butter, filtfilt
+import json
 from .refresh_token import get_dropbox_client
 
-def process_ecg_file(dropbox_path):
-    # Step 1: Download from Dropbox
+def get_ecg_json(dropbox_path):
+    # Step 1: Connect to Dropbox and download the JSON file
     dbx = get_dropbox_client()
     metadata, response = dbx.files_download(dropbox_path)
-    df = pd.read_csv(StringIO(response.content.decode("utf-8")), sep="\t")
+    print("Downloaded ECG JSON:", dropbox_path)
 
-    # Step 2: Extract required columns
-    if "QVAR [LSB]" not in df.columns or "Timestamp [us]" not in df.columns:
-        raise ValueError("Required columns not found in the ECG file.")
+    # Step 2: Decode the content and parse as JSON
+    file_text = response.content.decode("utf-8")
+    data = json.loads(file_text)
 
-    data = df["QVAR [LSB]"].values.astype(float)
-    times = df["Timestamp [us]"].values * 1e-6  # Convert µs to s
-
-    # Step 3: Baseline correction using polynomial detrending
-    baseline = np.polyval(np.polyfit(times, data, 10), times)
-    data_corrected = data - baseline
-
-    # Step 4: Low-pass Butterworth filter
-    def lowpass(signal, cutoff, fs, order=4):
-        b, a = butter(order, cutoff / (0.5 * fs), btype="low")
-        return filtfilt(b, a, signal)
-
-    sample_rate = 240  # Hz
-    data_corrected = lowpass(data_corrected, cutoff=18.5, fs=sample_rate)
-
-    # Step 5: Moving average smoothing
-    def smooth(signal, window):
-        return np.convolve(signal, np.ones(window) / window, mode="same")
-
-    window_size = max(1, int(sample_rate * 0.006))
-    data_corrected = smooth(data_corrected, window_size)
-
-    # Step 6: Return processed results
-    return {
-        "times": times.tolist(),
-        "data_corrected": data_corrected.tolist()
-    }
+    # Step 3: Return the parsed ECG dictionary
+    return data

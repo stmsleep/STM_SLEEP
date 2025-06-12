@@ -3,8 +3,7 @@ import ReactECharts from "echarts-for-react";
 
 export default function HeartRateChart({ prBpm, times }) {
   const [rangeStart, setRangeStart] = useState(0);
-  const [windowSize, setWindowSize] = useState(600); // window size in seconds
-
+  const [windowSize, setWindowSize] = useState(600); 
   const handleSliderChange = (e) => {
     setRangeStart(Number(e.target.value));
   };

@@ -7,8 +7,10 @@ import "../styles/UserList.css";
 export default function UserList({ onUserSelected }) {
   const [users, setUsers] = useState([]);
   const [files, setFiles] = useState([]);
+  const [selectedFolder, setSelectedFolder] = useState(null);
   const [isFileUploaded, setIsFileUploaded] = useState(false);
-  const [isSelectingUser, setIsSelectingUser] = useState(false);  // <-- loading state
+  const [isSelectingUser, setIsSelectingUser] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -26,7 +28,7 @@ export default function UserList({ onUserSelected }) {
   }, [isFileUploaded]);
 
   const handleSelect = async (user) => {
-    setIsSelectingUser(true);  // show spinner + block UI
+    setIsSelectingUser(true);
     try {
       const res = await axios.post(
         "http://localhost:8000/set_active_user/",
@@ -44,34 +46,53 @@ export default function UserList({ onUserSelected }) {
   };
 
   const handleChange = (e) => {
-    setFiles([...e.target.files]);
+    const selectedFiles = [...e.target.files];
+    setFiles(selectedFiles);
+    if (selectedFiles.length > 0) {
+      const folderName = selectedFiles[0].webkitRelativePath.split("/")[0];
+      setSelectedFolder(folderName);
+    }
   };
 
   const handleUpload = async () => {
+    if (!files.length) return;
+
+    setIsUploading(true);
+
     const formData = new FormData();
     files.forEach((file, idx) => {
-      formData.append(`files_${idx}`, file);  // unique key for each file
+      formData.append(`files_${idx}`, file);
       formData.append(`paths_${idx}`, file.webkitRelativePath);
     });
     formData.append("file_count", files.length);
-    
 
     try {
       const res = await axios.post("http://localhost:8000/upload_folder/", formData, {
         headers: { "Content-Type": "multipart/form-data" },
         withCredentials: true,
       });
-      setIsFileUploaded(!isFileUploaded);
       alert(res.data.message);
+      setIsFileUploaded(!isFileUploaded);
+      setSelectedFolder(null);
+      setFiles([]);
     } catch (err) {
       console.error(err);
       alert("Upload failed");
+    } finally {
+      setIsUploading(false);
     }
   };
 
   return (
-    <div className="user-page" style={{ position: "relative", pointerEvents: isSelectingUser ? "none" : "auto", opacity: isSelectingUser ? 0.4 : 1 }}>
-      {isSelectingUser && (
+    <div
+      className="user-page"
+      style={{
+        position: "relative",
+        pointerEvents: isSelectingUser || isUploading ? "none" : "auto",
+        opacity: isSelectingUser || isUploading ? 0.4 : 1,
+      }}
+    >
+      {(isSelectingUser || isUploading) && (
         <div className="spinner-overlay">
           <Spinner />
         </div>
@@ -106,8 +127,16 @@ export default function UserList({ onUserSelected }) {
               onChange={handleChange}
             />
           </label>
-          <button onClick={handleUpload}>Upload Folder</button>
+          <button onClick={handleUpload} disabled={isUploading || !files.length}>
+            {isUploading ? "Uploading..." : "Upload Folder"}
+          </button>
         </section>
+
+        {selectedFolder && (
+          <div style={{ marginTop: '1rem', textAlign: 'center', fontWeight: '500' }}>
+            Selected Folder: <span style={{ color: 'var(--primary)' }}>{selectedFolder}</span>
+          </div>
+        )}
       </main>
     </div>
   );

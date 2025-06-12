@@ -1,9 +1,9 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from .utils.heart_rate import get_heart_data_with_time
-from .utils.eog import process_sensor_file
+from .utils.heart_rate import get_heartdata_json
+from .utils.eog import get_eog_json
 from .utils.summary import extract_summary_pdf
-from .utils.ecg import process_ecg_file
+from .utils.ecg import get_ecg_json
 import traceback
 import json
 import dropbox
@@ -18,6 +18,11 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.utils.decorators import method_decorator
 from .utils.refresh_token import get_dropbox_client
+from .utils.convert_to_json import *
+from django.http import StreamingHttpResponse
+import gzip
+from django.http import HttpResponse
+import io
 
 User = get_user_model()
 
@@ -67,7 +72,14 @@ class LoginView(APIView):
             request.session.modified = True
             return Response({'detail': 'User created and logged in'}, status=status.HTTP_201_CREATED)
 
-
+def stream_json_gzip(data):
+    buffer = io.BytesIO()
+    with gzip.GzipFile(fileobj=buffer, mode='wb') as gz_file:
+        encoder = json.JSONEncoder()
+        for chunk in encoder.iterencode(data):
+            gz_file.write(chunk.encode('utf-8'))
+    buffer.seek(0)
+    return buffer
 @csrf_exempt
 def list_user_folders(request):
     print(request.session.keys())
@@ -132,13 +144,13 @@ def set_active_user(request):
                     if (entry.name.startswith('EMAY SpO2') and entry.name.endswith('.pdf')):
                         request.session['files']["pdf_summary"] = base_dir + "/" + entry.name
 
-                    if (entry.name.startswith('EMAY SpO2') and entry.name.endswith('.csv')):
+                    if (entry.name.startswith('EMAY SpO2') and entry.name.endswith('.json')):
                         request.session['files']["heart_rate_csv"] = base_dir + "/" + entry.name
 
-                    if (entry.name.endswith('_eog_000.txt')):
+                    if (entry.name.endswith('_eog_000.json')):
                         request.session['files']["eog_txt"] = base_dir + "/" + entry.name
                         
-                    if (entry.name.endswith("ecg_000.txt")):
+                    if (entry.name.endswith("ecg_000.json")):
                         request.session['files']["ecg_txt"] = base_dir + "/" + entry.name
 
             # print(request.session["files"])
@@ -158,6 +170,25 @@ def set_active_user(request):
     return JsonResponse({'error': 'Invalid request method'}, status=400)
 
 
+
+
+
+CHUNK_SIZE = 50 * 1024 * 1024  # 50 MB
+
+def upload_large_file(dbx, path, file_bytes):
+    upload_session_start_result = dbx.files_upload_session_start(file_bytes.read(CHUNK_SIZE))
+    cursor = dropbox.files.UploadSessionCursor(
+        session_id=upload_session_start_result.session_id,
+        offset=file_bytes.tell()
+    )
+    commit = dropbox.files.CommitInfo(path=path, mode=dropbox.files.WriteMode.overwrite)
+
+    while file_bytes.tell() < len(file_bytes.getvalue()):
+        if (len(file_bytes.getvalue()) - file_bytes.tell()) <= CHUNK_SIZE:
+            dbx.files_upload_session_finish(file_bytes.read(CHUNK_SIZE), cursor, commit)
+        else:
+            dbx.files_upload_session_append_v2(file_bytes.read(CHUNK_SIZE), cursor)
+            cursor.offset = file_bytes.tell()
 
 
 @csrf_exempt
@@ -181,41 +212,56 @@ def upload_folder(request):
 
             file_obj = request.FILES[file_key]
             rel_path = request.POST[path_key]
-            dropbox_path = f"/STM-Sleep/{user}/{rel_path}"
+            filename = file_obj.name
+            full_dropbox_path = f"/STM-Sleep/{user}/{rel_path}"
+            file_bytes = file_obj.read()
+            file_stream = io.BytesIO(file_bytes)
 
-            file_size = file_obj.size
-            CHUNK_SIZE = getattr(settings, 'CHUNK_SIZE', 8 * 1024 * 1024)
+            # 1. Direct PDF upload (chunked if large)
+            if filename.endswith(".pdf"):
+                print(f"Uploading PDF: {full_dropbox_path}")
+                if len(file_bytes) > 150 * 1024 * 1024:
+                    print("Using chunked upload for large PDF")
+                    upload_large_file(dbx, full_dropbox_path, io.BytesIO(file_bytes))
+                else:
+                    dbx.files_upload(file_bytes, full_dropbox_path, mode=dropbox.files.WriteMode.overwrite)
 
-            if file_size <= 150 * 1024 * 1024:
-                print(f"Uploading small file: {dropbox_path}")
-                dbx.files_upload(file_obj.read(), dropbox_path,
-                                 mode=dropbox.files.WriteMode.overwrite)
+            # 2. Preprocess to JSON
+            elif filename.endswith(".csv") or filename.endswith(".txt"):
+                print(f"Preprocessing {filename} to JSON")
+                file_content = file_bytes.decode("utf-8")
+                json_data = None
+
+                if filename.startswith("EMAY SpO2") and filename.endswith(".csv"):
+                    json_data = process_heart_to_json(io.StringIO(file_content))
+                elif filename.endswith("_eog_000.txt"):
+                    json_data = process_eog_to_json(io.StringIO(file_content))
+                elif filename.endswith("_ecg_000.txt"):
+                    json_data = process_ecg_to_json(io.StringIO(file_content))
+                else:
+                    print(f"Skipping unrecognized data file: {filename}")
+                    continue
+
+                json_bytes = json.dumps(json_data).encode("utf-8")
+                json_path = full_dropbox_path.rsplit(".", 1)[0] + ".json"
+
+                if len(json_bytes) > 150 * 1024 * 1024:
+                    print("Using chunked upload for large JSON")
+                    upload_large_file(dbx, json_path, io.BytesIO(json_bytes))
+                else:
+                    dbx.files_upload(json_bytes, json_path, mode=dropbox.files.WriteMode.overwrite)
+
             else:
-                print(f"Uploading large file in chunks: {dropbox_path}")
-                upload_session_start_result = dbx.files_upload_session_start(
-                    file_obj.read(CHUNK_SIZE))
-                cursor = dropbox.files.UploadSessionCursor(
-                    session_id=upload_session_start_result.session_id,
-                    offset=file_obj.tell())
-                commit = dropbox.files.CommitInfo(path=dropbox_path, mode=dropbox.files.WriteMode.overwrite)
-
-                while file_obj.tell() < file_size:
-                    if (file_size - file_obj.tell()) <= CHUNK_SIZE:
-                        dbx.files_upload_session_finish(
-                            file_obj.read(CHUNK_SIZE), cursor, commit)
-                    else:
-                        dbx.files_upload_session_append_v2(
-                            file_obj.read(CHUNK_SIZE), cursor)
-                        cursor.offset = file_obj.tell()
+                print(f"Skipping unsupported file: {filename}")
 
         return JsonResponse({'message': 'Folder uploaded successfully'})
 
     except Exception as e:
+        import traceback
         traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
 
 
-        
 
 @csrf_exempt
 def heart_rate(request):
@@ -227,7 +273,7 @@ def heart_rate(request):
 
         file_path = active_folder['heart_rate_csv']
 
-        result = get_heart_data_with_time(file_path)
+        result = get_heartdata_json(file_path)
 
         return JsonResponse(result, status=200)
 
@@ -236,21 +282,63 @@ def heart_rate(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+# @csrf_exempt
+# def process_eog(request):
+
+#     active_folder = request.session.get('files')
+#     if active_folder:
+#         try:
+#             file_path = active_folder['eog_txt']
+#             processed_data = get_eog_json(file_path)
+#             return JsonResponse(processed_data, safe=False)
+
+#         except Exception as e:
+#             traceback.print_exc()
+#             return JsonResponse({'error': str(e)}, status=500)
+
+# @csrf_exempt
+# def process_eog(request):
+#     try:
+#         active_folder = request.session.get('files')
+#         if not active_folder or 'eog_txt' not in active_folder:
+#             return JsonResponse({'error': 'Missing file info'}, status=400)
+
+#         file_path = active_folder['eog_txt']
+#         json_data = get_eog_json(file_path)
+#         print(1)
+#         compressed = gzip.compress(json.dumps(json_data).encode('utf-8'))
+#         print(2)
+#         # response = StreamingHttpResponse(io.BytesIO(compressed), content_type='application/json')
+#         # response['Content-Encoding'] = 'gzip'
+#         # return response
+#         return HttpResponse(compressed, content_type='application/json', headers={
+#     'Content-Encoding': 'gzip',
+#     'Content-Disposition': 'inline; filename="eog.json.gz"',
+#     'Access-Control-Expose-Headers': 'Content-Encoding',
+# })
 @csrf_exempt
 def process_eog(request):
+    try:
+        active_folder = request.session.get('files')
+        if not active_folder or 'eog_txt' not in active_folder:
+            return JsonResponse({'error': 'Missing file info'}, status=400)
 
-    active_folder = request.session.get('files')
-    if active_folder:
-        try:
-            file_path = active_folder['eog_txt']
-            processed_data = process_sensor_file(file_path)
-            return JsonResponse(processed_data, safe=False)
+        file_path = active_folder['eog_txt']
+        json_data = get_eog_json(file_path)
 
-        except Exception as e:
-            traceback.print_exc()
-            return JsonResponse({'error': str(e)}, status=500)
+        buf = stream_json_gzip(json_data)
+        print(11)
+        response = StreamingHttpResponse(buf, content_type='application/json')
+        print(111)
+        response['Content-Encoding'] = 'gzip'
+        return response
 
-
+    except Exception as e:
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
+    except Exception as e:
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
 @csrf_exempt
 def load_summary_pdf(request):
     active_folder = request.session.get('files')
@@ -277,7 +365,7 @@ def process_ecg(request):
 
     try:
         file_path = active_folder['ecg_txt']
-        result = process_ecg_file(file_path)
+        result = get_ecg_json(file_path)
         # result = file_path
 
         return JsonResponse(result)
