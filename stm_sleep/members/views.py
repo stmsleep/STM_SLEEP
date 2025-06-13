@@ -1,9 +1,7 @@
-from django.http import JsonResponse
+from django.http import JsonResponse, StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from .utils.heart_rate import get_heart_data_with_time
-from .utils.eog import process_sensor_file
+from django.views.decorators.http import require_GET
 from .utils.summary import extract_summary_pdf
-from .utils.ecg import process_ecg_file
 import traceback
 import json
 import dropbox
@@ -18,6 +16,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.utils.decorators import method_decorator
 from .utils.refresh_token import get_dropbox_client
+from .utils.convert_to_npz import *
+from django.http import HttpResponse
+import io
+import time
 
 User = get_user_model()
 
@@ -130,21 +132,19 @@ def set_active_user(request):
                 if isinstance(entry, FileMetadata):
                     folder_files.append(entry.name)
                     if (entry.name.startswith('EMAY SpO2') and entry.name.endswith('.pdf')):
+                        request.session['files']["pdf_summary"] = base_dir + "/" + entry.name
 
-                        request.session['files']["pdf_summary"] = base_dir + \
-                            "/"+entry.name
-                    if (entry.name.startswith('EMAY SpO2') and entry.name.endswith('.csv')):
+                    if (entry.name.startswith('EMAY SpO2') and entry.name.endswith('.npz')):
+                        request.session['files']["heart_rate_csv"] = base_dir + "/" + entry.name
 
-                        request.session['files']["heart_rate_csv"] = base_dir + \
-                            "/"+entry.name
-                    if (entry.name.endswith('_eog_000.txt')):
-                        request.session['files']["eog_txt"] = base_dir + \
-                            "/"+entry.name
-                    if (entry.name.endswith("ecg_000.txt")):
-                        request.session['files']["ecg_txt"] = base_dir + \
-                            "/"+entry.name
+                    if (entry.name.endswith('_eog_000.npz')):
+                        request.session['files']["eog_txt"] = base_dir + "/" + entry.name
+                        
+                    if (entry.name.endswith("ecg_000.npz")):
+                        request.session['files']["ecg_txt"] = base_dir + "/" + entry.name
 
-            print(request.session["files"])
+            # print(request.session["files"])
+            print("Completed")
 
             # Store in session
             request.session.modified = True
@@ -160,179 +160,169 @@ def set_active_user(request):
     return JsonResponse({'error': 'Invalid request method'}, status=400)
 
 
+
+
+
+CHUNK_SIZE = 50 * 1024 * 1024  # 50 MB
+
+# -------------------- Dropbox Chunk Upload --------------------
+def upload_large_file(dbx, path, file_bytes):
+    upload_session_start_result = dbx.files_upload_session_start(file_bytes.read(CHUNK_SIZE))
+    cursor = dropbox.files.UploadSessionCursor(
+        session_id=upload_session_start_result.session_id,
+        offset=file_bytes.tell()
+    )
+    commit = dropbox.files.CommitInfo(path=path, mode=dropbox.files.WriteMode.overwrite)
+
+    while file_bytes.tell() < len(file_bytes.getvalue()):
+        if (len(file_bytes.getvalue()) - file_bytes.tell()) <= CHUNK_SIZE:
+            dbx.files_upload_session_finish(file_bytes.read(CHUNK_SIZE), cursor, commit)
+        else:
+            dbx.files_upload_session_append_v2(file_bytes.read(CHUNK_SIZE), cursor)
+            cursor.offset = file_bytes.tell()
+
+# -------------------- NPZ Saver --------------------
+def save_npz_to_dropbox(dbx, np_data_dict, dropbox_path, threshold=150 * 1024 * 1024):
+    npz_bytes = io.BytesIO()
+    np.savez_compressed(npz_bytes, **np_data_dict)
+    npz_bytes.seek(0)
+
+    if len(npz_bytes.getvalue()) > threshold:
+        print("Using chunked upload for large .npz")
+        upload_large_file(dbx, dropbox_path, npz_bytes)
+    else:
+        dbx.files_upload(npz_bytes.getvalue(), dropbox_path, mode=dropbox.files.WriteMode.overwrite)
+
+
+
 @csrf_exempt
 def upload_folder(request):
-    print("Cookies:", request.COOKIES)
-    print("Session:", request.session.items())
     user = request.session.get("user")
-    print("User:     ", user)
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method'}, status=400)
+    if not user:
+        return JsonResponse({'error': 'User not authenticated'}, status=400)
 
-    if request.method == 'POST':
-        username = request.session.get("user")
-        print("Session username:", username)
+    try:
+        dbx = get_dropbox_client()
+        file_count = int(request.POST.get("file_count", 0))
 
-        if not username:
-            return JsonResponse({'error': 'User not authenticated'}, status=400)
+        for i in range(file_count):
+            file_key = f"files_{i}"
+            path_key = f"paths_{i}"
 
-        try:
-            dbx = get_dropbox_client()
+            if file_key not in request.FILES or path_key not in request.POST:
+                continue
 
-            for key, file_obj in request.FILES.items():
-                file_path = file_obj.name
-                dropbox_path = f"/STM-Sleep/{username}/{file_path}"
+            file_obj = request.FILES[file_key]
+            rel_path = request.POST[path_key]
+            filename = file_obj.name
+            full_dropbox_path = f"/STM-Sleep/{user}/{rel_path}"
+            file_bytes = file_obj.read()
+            file_stream = io.BytesIO(file_bytes)
 
-                print(f"Uploading to Dropbox: {dropbox_path}")
-                dbx.files_upload(file_obj.read(), dropbox_path,
-                                 mode=dropbox.files.WriteMode.overwrite)
+            if filename.endswith(".pdf"):
+                print(f"Uploading PDF: {full_dropbox_path}")
+                if len(file_bytes) > 150 * 1024 * 1024:
+                    upload_large_file(dbx, full_dropbox_path, io.BytesIO(file_bytes))
+                else:
+                    dbx.files_upload(file_bytes, full_dropbox_path, mode=dropbox.files.WriteMode.overwrite)
 
-            return JsonResponse({'message': 'Folder uploaded successfully'})
+            elif filename.endswith(".csv") or filename.endswith(".txt"):
+                print(f"Preprocessing {filename} to NPZ")
+                content_str = file_bytes.decode("utf-8")
+                npz_data = None
 
-        except Exception as e:
-            traceback.print_exc()
-            return JsonResponse({'error': str(e)}, status=500)
+                if filename.startswith("EMAY SpO2") and filename.endswith(".csv"):
+                    npz_data = process_heart_to_npz(io.StringIO(content_str))
+                elif filename.endswith("_eog_000.txt"):
+                    npz_data = process_eog_to_npz(io.StringIO(content_str))
+                elif filename.endswith("_ecg_000.txt"):
+                    npz_data = process_ecg_to_npz(io.StringIO(content_str))
+                else:
+                    print(f"Skipping unrecognized data file: {filename}")
+                    continue
 
-    return JsonResponse({'error': 'Invalid request method'}, status=400)
+                npz_path = full_dropbox_path.rsplit(".", 1)[0] + ".npz"
+                save_npz_to_dropbox(dbx, npz_data, npz_path)
 
-
-
-'''@csrf_exempt
-def upload_folder(request):
-    if request.method == 'POST':
-        print("Cookies:", request.COOKIES)
-        username = request.session.get("user")
-        print(username)
-        user_folder = request.FILES.getlist("folder[]")
-
-        if not username:
-            return JsonResponse({'error': 'Username is required'}, status=400)
-
-        dbx = dropbox.Dropbox(settings.DROPBOX_ACCESS_TOKEN)
-
-        for file_obj in user_folder:
-            # Construct the path on Dropbox
-            relative_path = file_obj.name
-            dropbox_path = f"/STM-sleep/{username}/{relative_path}"
-            dbx.files_upload(file_obj.read(), dropbox_path,
-                             mode=dropbox.files.WriteMode.overwrite)
+            else:
+                print(f"Skipping unsupported file: {filename}")
 
         return JsonResponse({'message': 'Folder uploaded successfully'})
 
-    return JsonResponse({'error': 'Invalid request method'}, status=400)
-'''
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
 
 
-@csrf_exempt
-def upload_folder(request):
-    if request.method == 'POST':
-        username = request.session.get("user")
-        if not username:
-            return JsonResponse({'error': 'No active session/user'}, status=400)
 
-        # 'files' is a list of uploaded file objects
-        files = request.FILES.getlist('files')
-        paths = request.POST.getlist('paths')  # relative paths!
-
-        if not files or not paths or len(files) != len(paths):
-            return JsonResponse({'error': 'Invalid file data'}, status=400)
-
-        dbx = get_dropbox_client()
-
-        try:
-            for file_obj, relative_path in zip(files, paths):
-                # Reconstruct Dropbox path:
-                dropbox_path = f"/STM-Sleep/{username}/{relative_path}"
-                print(f"Uploading to: {dropbox_path}")
-
-                # Create parent folders if needed (Dropbox auto-creates intermediate folders)
-                dbx.files_upload(file_obj.read(), dropbox_path,
-                                 mode=dropbox.files.WriteMode.overwrite)
-
-            return JsonResponse({'message': 'Folder uploaded successfully'})
-
-        except Exception as e:
-            traceback.print_exc()
-            return JsonResponse({'error': str(e)}, status=500)
-
-    return JsonResponse({'error': 'Invalid request method'}, status=400)
-        
 
 @csrf_exempt
 def heart_rate(request):
-    active_folder = request.session.get('files')  # directory path stored
-    if not active_folder:
-        return JsonResponse({'error': 'No active user set in session.'}, status=400)
 
     try:
+        active_folder = request.session.get('files')
+        if not active_folder or 'heart_rate_csv' not in active_folder:
+            return JsonResponse({'error': 'Missing Dropbox file info'}, status=400)
 
-        file_path = active_folder['heart_rate_csv']
-
-        result = get_heart_data_with_time(file_path)
-
-        print("Type of Heart Data ", type(result))
-
-        return JsonResponse(result, status=200)
+        dbx = get_dropbox_client()
+        link = dbx.files_get_temporary_link(active_folder['heart_rate_csv']).link
+        return JsonResponse({"url":link})
 
     except Exception as e:
-        print("Error in upload_csv view:", e)
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
+
+def process_eog(request):
+
+    try:
+        active_folder = request.session.get('files')
+        print(active_folder)
+        if not active_folder or 'eog_txt' not in active_folder:
+            return JsonResponse({'error': 'Missing Dropbox file info'}, status=400)
+
+        # return response
+        dbx = get_dropbox_client()
+        link = dbx.files_get_temporary_link(active_folder['eog_txt']).link
+        return JsonResponse({"url":link})
+    
+    except Exception as e:
+        traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
 
 
 @csrf_exempt
-def process_eog(request):
+def process_ecg(request):
 
-    active_folder = request.session.get('files')
-    if active_folder:
-        try:
-            file_path = active_folder['eog_txt']
-            processed_data = process_sensor_file(file_path)
-            print(len(processed_data))
-            print("Type of EOG", type(processed_data))
-            return JsonResponse(processed_data, safe=False)
+    try:
+        active_folder = request.session.get('files')
+        if not active_folder or 'ecg_txt' not in active_folder:
+            return JsonResponse({'error': 'Missing Dropbox file info'}, status=400)
 
-        except Exception as e:
-            traceback.print_exc()
-            return JsonResponse({'error': str(e)}, status=500)
+        dbx = get_dropbox_client()
+        link = dbx.files_get_temporary_link(active_folder['ecg_txt']).link
+        return JsonResponse({"url":link})
 
+        return response
+    
+    except Exception as e:
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
+    
 
 @csrf_exempt
 def load_summary_pdf(request):
     active_folder = request.session.get('files')
-    
     if active_folder:
-        print(1)
-        print(active_folder)
-        pdf_path = active_folder['pdf_summary']
-        print("From load summary pdf :",pdf_path)
-        print(pdf_path)
-        print(2)
         try:
+            pdf_path = active_folder['pdf_summary']
             result = extract_summary_pdf(pdf_path)
             return JsonResponse(result)
         except Exception as e:
             traceback.print_exc()
             return JsonResponse({"Error": str(e)}, status=500)
-
-
-@csrf_exempt
-def process_ecg(request):
-    active_folder = request.session.get('files')
-
-    if not active_folder:
-        traceback.print_exc()
-        return JsonResponse({"Error": "No active user found"}, status=400)
-
-    try:
-        # Identify ECG TXT file (assuming you saved it in session['files'])
-        file_path = active_folder['ecg_txt']
-
-        result = process_ecg_file(file_path)
-
-        return result
-
-    except Exception as e:
-        traceback.print_exc()
-        return JsonResponse({"Error": str(e)}, status=500)
-
 
 
 # Dropbox token creation

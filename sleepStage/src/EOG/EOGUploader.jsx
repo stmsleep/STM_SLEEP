@@ -1,15 +1,20 @@
 import React, { useEffect, useState } from "react";
-import Plot from "react-plotly.js";
+import ReactECharts from "echarts-for-react";
 import axios from "axios";
 import Spinner from "../spinner/Spinner";
-import "../styles/Ecg.css"; // Use same style file as ECG
+import "../styles/Ecg.css";
+import { parseNPZ } from "../utils/parseNpz";
+
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
+
 
 export default function EOGUploader() {
   const [plotData, setPlotData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [totalMinutes, setTotalMinutes] = useState(0);
 
   const pageSize = 14400;
-  const [totalMinutes, setTotalMinutes] = useState(0);
 
   const [qvarPage, setQvarPage] = useState(0);
   const [accPage, setAccPage] = useState(0);
@@ -22,41 +27,70 @@ export default function EOGUploader() {
   useEffect(() => {
     async function fetchPoints() {
       setIsLoading(true);
+      console.time("Total fetchPoints");
+  
       try {
-        const response = await axios.get("http://localhost:8000/process_eog/", {
-          withCredentials: true,
+        console.time("1. Get Dropbox link");
+        const { data: { url } } = await axios.get("http://localhost:8000/process_eog/", {
+          withCredentials: true
         });
-        if (response.status === 200) {
-          setPlotData(response.data);
-
-          const { time } = response.data;
-          setTotalMinutes(Math.ceil(time.length / pageSize));
-
-          updateQvarSlice(response.data, 0);
-          updateAccSlice(response.data, 0);
-          updateGyroSlice(response.data, 0);
-        } else {
-          alert("Failed Fetching Data!");
-        }
+        console.timeEnd("1. Get Dropbox link");
+  
+        console.time("2. Download .npz file");
+        const res = await fetch(url);
+        const arrayBuffer = await res.arrayBuffer();
+        console.timeEnd("2. Download .npz file");
+  
+        console.time("3. Parse .npz file");
+        const npz = await parseNPZ(arrayBuffer);
+        console.timeEnd("3. Parse .npz file");
+  
+        const parsedData = {
+          time: npz['time'],
+          qvar: npz['qvar'],
+          a_x: npz['a_x'],
+          a_y: npz['a_y'],
+          a_z: npz['a_z'],
+          g_x: npz['g_x'],
+          g_y: npz['g_y'],
+          g_z: npz['g_z'],
+        };
+  
+        setPlotData(parsedData);
+        setTotalMinutes(Math.ceil(parsedData.time.length / pageSize));
+  
+        updateQvarSlice(parsedData, 0);
+        updateAccSlice(parsedData, 0);
+        updateGyroSlice(parsedData, 0);
+  
+        console.timeEnd("Total fetchPoints");
       } catch (error) {
-        alert("Failed Fetching Data: " + error.message);
+        console.error("Error while fetching:", error);
+        const msg = error.response
+          ? `Server responded with status ${error.response.status}: ${error.response.statusText}`
+          : error.request
+            ? "No response received from server. Please check your backend is running."
+            : "Error during request: " + error.message;
+        alert(msg);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }
-
+  
     fetchPoints();
   }, []);
+  
+  
+  
 
   const updateQvarSlice = (data, pageIndex) => {
-    const start = pageIndex * pageSize;
-    const end = start + pageSize;
+    const [start, end] = [pageIndex * pageSize, (pageIndex + 1) * pageSize];
     setQvarData({ time: data.time.slice(start, end), qvar: data.qvar.slice(start, end) });
     setQvarPage(pageIndex);
   };
 
   const updateAccSlice = (data, pageIndex) => {
-    const start = pageIndex * pageSize;
-    const end = start + pageSize;
+    const [start, end] = [pageIndex * pageSize, (pageIndex + 1) * pageSize];
     setAccData({
       time: data.time.slice(start, end),
       a_x: data.a_x.slice(start, end),
@@ -67,8 +101,7 @@ export default function EOGUploader() {
   };
 
   const updateGyroSlice = (data, pageIndex) => {
-    const start = pageIndex * pageSize;
-    const end = start + pageSize;
+    const [start, end] = [pageIndex * pageSize, (pageIndex + 1) * pageSize];
     setGyroData({
       time: data.time.slice(start, end),
       g_x: data.g_x.slice(start, end),
@@ -92,34 +125,46 @@ export default function EOGUploader() {
     </div>
   );
 
+  const getEChartOption = (title, xData, series) => ({
+    renderer: 'canvas',
+    title: { text: title },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'cross' },
+    },
+    xAxis: { type: 'category', data: xData },
+    yAxis: { type: 'value', scale: true },
+    dataZoom: [
+      { type: 'inside', zoomOnMouseWheel: true, moveOnMouseWheel: true, moveOnMouseMove: true, throttle: 50 }
+    ],
+    toolbox: {
+      feature: { dataZoom: { yAxisIndex: 'none' }, restore: {} },
+    },
+    series,
+  });
+
   return (
     <div className="ecg-wrapper">
       <h1 className="title">EOG Data</h1>
       {isLoading ? (
-        <Spinner />
+        <div className="ecg-loading-skeletons">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="chart-card">
+              <Skeleton height={30} width={200} style={{ marginBottom: 10 }} />
+              <Skeleton height={400} />
+              <Skeleton height={40} width={`50%`} style={{ marginTop: 10 }} />
+            </div>
+          ))}
+        </div>
       ) : (
         <>
           {qvarData && (
             <div className="chart-card">
-              <Plot
-                data={[{
-                  x: qvarData.time,
-                  y: qvarData.qvar,
-                  type: "scatter",
-                  mode: "lines",
-                  line: { color: "#2c3e50" },
-                  name: "QVAR",
-                }]}
-                layout={{
-                  title: "QVAR Signal",
-                  xaxis: { title: "Time" },
-                  yaxis: { title: "QVAR" },
-                  margin: { t: 40, r: 30, l: 50, b: 50 },
-                  paper_bgcolor: "white",
-                  plot_bgcolor: "white",
-                }}
-                style={{ width: "100%", height: "400px" }}
-                config={{ responsive: true, displaylogo: false }}
+              <ReactECharts
+                option={getEChartOption("QVAR Signal", qvarData.time, [
+                  { data: qvarData.qvar, type: 'line', name: 'QVAR', lineStyle: { color: '#2c3e50' } },
+                ])}
+                style={{ height: 400 }}
               />
               {renderSlider("QVAR Minute", qvarPage, (i) => updateQvarSlice(plotData, i))}
             </div>
@@ -127,43 +172,13 @@ export default function EOGUploader() {
 
           {accData && (
             <div className="chart-card">
-              <Plot
-                data={[
-                  {
-                    x: accData.time,
-                    y: accData.a_x,
-                    type: "scatter",
-                    mode: "lines",
-                    name: "A_X",
-                    line: { color: "#2c3e50" },
-                  },
-                  {
-                    x: accData.time,
-                    y: accData.a_y,
-                    type: "scatter",
-                    mode: "lines",
-                    name: "A_Y",
-                    line: { color: "#2980b9" },
-                  },
-                  {
-                    x: accData.time,
-                    y: accData.a_z,
-                    type: "scatter",
-                    mode: "lines",
-                    name: "A_Z",
-                    line: { color: "#27ae60" },
-                  },
-                ]}
-                layout={{
-                  title: "Accelerometer Signal",
-                  xaxis: { title: "Time" },
-                  yaxis: { title: "Acceleration" },
-                  margin: { t: 40, r: 30, l: 50, b: 50 },
-                  paper_bgcolor: "white",
-                  plot_bgcolor: "white",
-                }}
-                style={{ width: "100%", height: "400px" }}
-                config={{ responsive: true, displaylogo: false }}
+              <ReactECharts
+                option={getEChartOption("Accelerometer Signal", accData.time, [
+                  { data: accData.a_x, type: 'line', name: 'A_X', lineStyle: { color: '#2c3e50' } },
+                  { data: accData.a_y, type: 'line', name: 'A_Y', lineStyle: { color: '#2980b9' } },
+                  { data: accData.a_z, type: 'line', name: 'A_Z', lineStyle: { color: '#27ae60' } },
+                ])}
+                style={{ height: 400 }}
               />
               {renderSlider("Accelerometer Minute", accPage, (i) => updateAccSlice(plotData, i))}
             </div>
@@ -171,43 +186,13 @@ export default function EOGUploader() {
 
           {gyroData && (
             <div className="chart-card">
-              <Plot
-                data={[
-                  {
-                    x: gyroData.time,
-                    y: gyroData.g_x,
-                    type: "scatter",
-                    mode: "lines",
-                    name: "G_X",
-                    line: { color: "#2c3e50" },
-                  },
-                  {
-                    x: gyroData.time,
-                    y: gyroData.g_y,
-                    type: "scatter",
-                    mode: "lines",
-                    name: "G_Y",
-                    line: { color: "#c0392b" },
-                  },
-                  {
-                    x: gyroData.time,
-                    y: gyroData.g_z,
-                    type: "scatter",
-                    mode: "lines",
-                    name: "G_Z",
-                    line: { color: "#8e44ad" },
-                  },
-                ]}
-                layout={{
-                  title: "Gyroscope Signal",
-                  xaxis: { title: "Time" },
-                  yaxis: { title: "Gyro" },
-                  margin: { t: 40, r: 30, l: 50, b: 50 },
-                  paper_bgcolor: "white",
-                  plot_bgcolor: "white",
-                }}
-                style={{ width: "100%", height: "400px" }}
-                config={{ responsive: true, displaylogo: false }}
+              <ReactECharts
+                option={getEChartOption("Gyroscope Signal", gyroData.time, [
+                  { data: gyroData.g_x, type: 'line', name: 'G_X', lineStyle: { color: '#2c3e50' } },
+                  { data: gyroData.g_y, type: 'line', name: 'G_Y', lineStyle: { color: '#c0392b' } },
+                  { data: gyroData.g_z, type: 'line', name: 'G_Z', lineStyle: { color: '#8e44ad' } },
+                ])}
+                style={{ height: 400 }}
               />
               {renderSlider("Gyroscope Minute", gyroPage, (i) => updateGyroSlice(plotData, i))}
             </div>

@@ -1,8 +1,10 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
-import Spinner from "../spinner/Spinner";
-import Plot from "react-plotly.js";
+import Skeleton from "react-loading-skeleton";
+import "react-loading-skeleton/dist/skeleton.css";
+import ReactECharts from "echarts-for-react";
 import "../styles/Ecg.css";
+import { parseNPZ } from "../utils/parseNpz";
 
 export default function ECG() {
   const [data, setData] = useState({ times: [], data_corrected: [] });
@@ -16,21 +18,38 @@ export default function ECG() {
   useEffect(() => {
     async function fetchPoints() {
       setIsLoading(true);
+      console.time("Total fetchPoints");
+
       try {
-        const response = await axios.get("http://localhost:8000/process_ecg/", {
+        console.time("1. Get Dropbox link");
+
+        const { data: { url } } = await axios.get("http://localhost:8000/process_ecg/", {
           withCredentials: true,
         });
-        if (response.status === 200) {
-          const { times, data_corrected } = response.data;
-          console.log("Total points:", times.length);
-          setData({ times, data_corrected });
-          setDisplayedData({
-            times: times.slice(0, pageSize),
-            data_corrected: data_corrected.slice(0, pageSize),
-          });
-          setTotalMinutes(Math.ceil(times.length / pageSize));
-          setCurrentPage(0);
-        }
+
+        console.timeEnd("1. Get Dropbox link");
+
+        console.time("2. Download .npz file");
+        const res = await fetch(url);
+        const arrayBuffer = await res.arrayBuffer();
+        console.timeEnd("2. Download .npz file");
+
+        console.time("3. Parse .npz file");
+        const npz = await parseNPZ(arrayBuffer);
+        console.timeEnd("3. Parse .npz file");
+
+        const times = npz["time"] || npz["times"] || [];
+        const data_corrected = npz["qvar"] || npz["data_corrected"] || [];
+
+        setData({ times, data_corrected });
+        setDisplayedData({
+          times: times.slice(0, pageSize),
+          data_corrected: data_corrected.slice(0, pageSize),
+        });
+        setTotalMinutes(Math.ceil(times.length / pageSize));
+        setCurrentPage(0);
+
+        console.timeEnd("Total fetchPoints");
       } catch (error) {
         console.error("Error fetching ECG data:", error);
       } finally {
@@ -51,37 +70,82 @@ export default function ECG() {
     setCurrentPage(pageIndex);
   };
 
+  const getEChartOption = () => ({
+    title: {
+      text: "ECG Signal",
+      left: "center"
+    },
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "cross" }
+    },
+    xAxis: {
+      type: "category",
+      data: displayedData.times,
+      name: "Time",
+      axisLine: { onZero: false }
+    },
+    yAxis: {
+      type: "value",
+      name: "Amplitude"
+    },
+    series: [
+      {
+        name: "ECG",
+        type: "line",
+        showSymbol: false,
+        data: displayedData.data_corrected,
+        lineStyle: {
+          color: "#2c3e50"
+        }
+      }
+    ],
+    grid: {
+      left: "8%",
+      right: "8%",
+      bottom: "15%"
+    },
+    dataZoom: [
+      {
+        type: 'inside',
+        zoomOnMouseWheel: true,
+        moveOnMouseWheel: true,
+        moveOnMouseMove: true,
+        throttle: 50,
+      }
+    ],
+    toolbox: {
+      feature: {
+        dataZoom: { yAxisIndex: 'none' },
+        restore: {},
+      },
+    },
+  });
+
+  const renderSkeleton = () => (
+    <div className="chart-card">
+      <Skeleton height={400} />
+      <Skeleton height={20} width="60%" style={{ marginTop: 12 }} />
+      <Skeleton height={40} width="100%" style={{ marginTop: 20 }} />
+    </div>
+  );
+
   return (
     <div className="ecg-wrapper">
       <h1 className="title">ECG Data</h1>
 
       {isLoading ? (
-        <Spinner />
+        renderSkeleton()
       ) : (
         <>
-        <br />
           <div className="chart-card">
-            <Plot
-              data={[
-                {
-                  x: displayedData.times,
-                  y: displayedData.data_corrected,
-                  type: "scatter",
-                  mode: "lines",
-                  line: { color: "#2c3e50" },
-                },
-              ]}
-              layout={{
-                title: "ECG Signal",
-                xaxis: { title: "Time" },
-                yaxis: { title: "Amplitude" },
-                margin: { t: 40, r: 30, l: 50, b: 50 },
-                paper_bgcolor: "white",
-                plot_bgcolor: "white",
-                autosize: true,
-              }}
+            <ReactECharts
+              option={getEChartOption()}
               style={{ width: "100%", height: "400px" }}
-              config={{ responsive: true,displaylogo: false }}
+              notMerge={true}
+              lazyUpdate={true}
+              theme={"light"}
+              opts={{ renderer: "canvas" }}
             />
           </div>
 

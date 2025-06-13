@@ -1,15 +1,21 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import ibutton from '../assets/i.png';
+import Spinner from "../spinner/Spinner";
 import "../styles/UserList.css";
 
 export default function UserList({ onUserSelected }) {
   const [users, setUsers] = useState([]);
   const [files, setFiles] = useState([]);
+  const [selectedFolder, setSelectedFolder] = useState(null);
   const [isFileUploaded, setIsFileUploaded] = useState(false);
+  const [isSelectingUser, setIsSelectingUser] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // 👈 NEW
 
   useEffect(() => {
     const fetchUsers = async () => {
+      setIsLoading(true);
       try {
         const res = await axios.get("http://localhost:8000/list_user_folders/", {
           withCredentials: true,
@@ -17,6 +23,8 @@ export default function UserList({ onUserSelected }) {
         setUsers(res.data.folders);
       } catch (err) {
         console.error("Error fetching users:", err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -24,6 +32,7 @@ export default function UserList({ onUserSelected }) {
   }, [isFileUploaded]);
 
   const handleSelect = async (user) => {
+    setIsSelectingUser(true);
     try {
       const res = await axios.post(
         "http://localhost:8000/set_active_user/",
@@ -35,51 +44,89 @@ export default function UserList({ onUserSelected }) {
       }
     } catch (err) {
       console.log("Error selecting user:", err);
+    } finally {
+      setIsSelectingUser(false);
     }
   };
 
   const handleChange = (e) => {
-    setFiles([...e.target.files]);
+    const selectedFiles = [...e.target.files];
+    setFiles(selectedFiles);
+    if (selectedFiles.length > 0) {
+      const folderName = selectedFiles[0].webkitRelativePath.split("/")[0];
+      setSelectedFolder(folderName);
+    }
   };
 
   const handleUpload = async () => {
+    if (!files.length) return;
+
+    setIsUploading(true);
+
     const formData = new FormData();
-    files.forEach((file) => {
-      formData.append("files", file);
-      formData.append("paths", file.webkitRelativePath);
+    files.forEach((file, idx) => {
+      formData.append(`files_${idx}`, file);
+      formData.append(`paths_${idx}`, file.webkitRelativePath);
     });
+    formData.append("file_count", files.length);
 
     try {
       const res = await axios.post("http://localhost:8000/upload_folder/", formData, {
         headers: { "Content-Type": "multipart/form-data" },
         withCredentials: true,
       });
-      setIsFileUploaded(!isFileUploaded);
       alert(res.data.message);
+      setIsFileUploaded(!isFileUploaded);
+      setSelectedFolder(null);
+      setFiles([]);
     } catch (err) {
       console.error(err);
       alert("Upload failed");
+    } finally {
+      setIsUploading(false);
     }
   };
 
   return (
-    <div className="user-page">
+    <div
+      className="user-page"
+      style={{
+        position: "relative",
+        pointerEvents: isSelectingUser || isUploading ? "none" : "auto",
+        opacity: isSelectingUser || isUploading ? 0.4 : 1,
+      }}
+    >
+      {(isSelectingUser || isUploading) && (
+        <div className="spinner-overlay">
+          <Spinner />
+        </div>
+      )}
+
       <header className="user-header">
-        <h1>Select the report </h1>
+        <h1>Select the report</h1>
         <div className="info-container">
-          <img src={ibutton} style={{ width: '24px', height: '24px' }} />
+          <img src={ibutton} style={{ width: '24px', height: '24px' }} alt="info" />
           <span className="tooltip-text">Select a user folder or upload a new one</span>
         </div>
       </header>
 
       <main className="user-main">
         <section className="user-grid">
-          {users.map((user) => (
-            <div key={user} onClick={() => handleSelect(user)} className="user-card">
-              <span>{user.length > 7 ? `${user.slice(0, 7)}...` : user}</span>
+          {isLoading ? (
+            <div style={{ fontSize: "1rem", fontWeight: "500", textAlign: "center" }}>
+              Fetching folders...
             </div>
-          ))}
-
+          ) : users.length === 0 ? (
+            <div style={{ fontSize: "1rem", fontWeight: "500", textAlign: "center" }}>
+              No folders found. Upload a new one below.
+            </div>
+          ) : (
+            users.map((user) => (
+              <div key={user} onClick={() => handleSelect(user)} className="user-card">
+                <span>{user.length > 7 ? `${user.slice(0, 7)}...` : user}</span>
+              </div>
+            ))
+          )}
         </section>
 
         <section className="upload-section">
@@ -94,9 +141,16 @@ export default function UserList({ onUserSelected }) {
               onChange={handleChange}
             />
           </label>
-          <button onClick={handleUpload}>Upload Folder</button>
+          <button onClick={handleUpload} disabled={isUploading || !files.length}>
+            {isUploading ? "Uploading..." : "Upload Folder"}
+          </button>
         </section>
 
+        {selectedFolder && (
+          <div className="selected-folder-display">
+            Selected Folder: <span>{selectedFolder}</span>
+          </div>
+        )}
       </main>
     </div>
   );
