@@ -84,7 +84,7 @@ export default function HeartRateChart({ prBpm, times }) {
     <div className="chart-container">
       <ReactECharts
         option={getOption()}
-        style={{ width: "50%", height: "500px" }}
+        style={{ width: "100%", height: "500px" }}
         notMerge={true}
         lazyUpdate={true}
       />

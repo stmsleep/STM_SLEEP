@@ -11,9 +11,11 @@ export default function UserList({ onUserSelected }) {
   const [isFileUploaded, setIsFileUploaded] = useState(false);
   const [isSelectingUser, setIsSelectingUser] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // 👈 NEW
 
   useEffect(() => {
     const fetchUsers = async () => {
+      setIsLoading(true);
       try {
         const res = await axios.get("http://localhost:8000/list_user_folders/", {
           withCredentials: true,
@@ -21,6 +23,8 @@ export default function UserList({ onUserSelected }) {
         setUsers(res.data.folders);
       } catch (err) {
         console.error("Error fetching users:", err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -108,11 +112,21 @@ export default function UserList({ onUserSelected }) {
 
       <main className="user-main">
         <section className="user-grid">
-          {users.map((user) => (
-            <div key={user} onClick={() => handleSelect(user)} className="user-card">
-              <span>{user.length > 7 ? `${user.slice(0, 7)}...` : user}</span>
+          {isLoading ? (
+            <div style={{ fontSize: "1rem", fontWeight: "500", textAlign: "center" }}>
+              Fetching folders...
             </div>
-          ))}
+          ) : users.length === 0 ? (
+            <div style={{ fontSize: "1rem", fontWeight: "500", textAlign: "center" }}>
+              No folders found. Upload a new one below.
+            </div>
+          ) : (
+            users.map((user) => (
+              <div key={user} onClick={() => handleSelect(user)} className="user-card">
+                <span>{user.length > 7 ? `${user.slice(0, 7)}...` : user}</span>
+              </div>
+            ))
+          )}
         </section>
 
         <section className="upload-section">
@@ -133,8 +147,8 @@ export default function UserList({ onUserSelected }) {
         </section>
 
         {selectedFolder && (
-          <div style={{ marginTop: '1rem', textAlign: 'center', fontWeight: '500' }}>
-            Selected Folder: <span style={{ color: 'var(--primary)' }}>{selectedFolder}</span>
+          <div className="selected-folder-display">
+            Selected Folder: <span>{selectedFolder}</span>
           </div>
         )}
       </main>

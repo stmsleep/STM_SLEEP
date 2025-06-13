@@ -3,13 +3,18 @@ import ReactECharts from "echarts-for-react";
 import axios from "axios";
 import Spinner from "../spinner/Spinner";
 import "../styles/Ecg.css";
+import { parseNPZ } from "../utils/parseNpz";
+
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
+
 
 export default function EOGUploader() {
   const [plotData, setPlotData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [totalMinutes, setTotalMinutes] = useState(0);
 
   const pageSize = 14400;
-  const [totalMinutes, setTotalMinutes] = useState(0);
 
   const [qvarPage, setQvarPage] = useState(0);
   const [accPage, setAccPage] = useState(0);
@@ -22,46 +27,70 @@ export default function EOGUploader() {
   useEffect(() => {
     async function fetchPoints() {
       setIsLoading(true);
+      console.time("Total fetchPoints");
+  
       try {
-        const response = await axios.get("http://localhost:8000/process_eog/", {
-          headers:{
-            'Accept-Encoding': 'gzip',      
-            'Accept': 'application/json'
-          },
-          responseType: 'json',
-          withCredentials: true,
+        console.time("1. Get Dropbox link");
+        const { data: { url } } = await axios.get("http://localhost:8000/process_eog/", {
+          withCredentials: true
         });
-        console.log(response.data)
-        if (response.status === 200) {
-          setPlotData(response.data);
-          const { time } = response.data;
-          setTotalMinutes(Math.ceil(time.length / pageSize));
-
-          updateQvarSlice(response.data, 0);
-          updateAccSlice(response.data, 0);
-          updateGyroSlice(response.data, 0);
-        } else {
-          alert("Failed Fetching Data!");
-        }
+        console.timeEnd("1. Get Dropbox link");
+  
+        console.time("2. Download .npz file");
+        const res = await fetch(url);
+        const arrayBuffer = await res.arrayBuffer();
+        console.timeEnd("2. Download .npz file");
+  
+        console.time("3. Parse .npz file");
+        const npz = await parseNPZ(arrayBuffer);
+        console.timeEnd("3. Parse .npz file");
+  
+        const parsedData = {
+          time: npz['time'],
+          qvar: npz['qvar'],
+          a_x: npz['a_x'],
+          a_y: npz['a_y'],
+          a_z: npz['a_z'],
+          g_x: npz['g_x'],
+          g_y: npz['g_y'],
+          g_z: npz['g_z'],
+        };
+  
+        setPlotData(parsedData);
+        setTotalMinutes(Math.ceil(parsedData.time.length / pageSize));
+  
+        updateQvarSlice(parsedData, 0);
+        updateAccSlice(parsedData, 0);
+        updateGyroSlice(parsedData, 0);
+  
+        console.timeEnd("Total fetchPoints");
       } catch (error) {
-        alert("Failed Fetching Data: " + error.message);
+        console.error("Error while fetching:", error);
+        const msg = error.response
+          ? `Server responded with status ${error.response.status}: ${error.response.statusText}`
+          : error.request
+            ? "No response received from server. Please check your backend is running."
+            : "Error during request: " + error.message;
+        alert(msg);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }
-
+  
     fetchPoints();
   }, []);
+  
+  
+  
 
   const updateQvarSlice = (data, pageIndex) => {
-    const start = pageIndex * pageSize;
-    const end = start + pageSize;
+    const [start, end] = [pageIndex * pageSize, (pageIndex + 1) * pageSize];
     setQvarData({ time: data.time.slice(start, end), qvar: data.qvar.slice(start, end) });
     setQvarPage(pageIndex);
   };
 
   const updateAccSlice = (data, pageIndex) => {
-    const start = pageIndex * pageSize;
-    const end = start + pageSize;
+    const [start, end] = [pageIndex * pageSize, (pageIndex + 1) * pageSize];
     setAccData({
       time: data.time.slice(start, end),
       a_x: data.a_x.slice(start, end),
@@ -72,8 +101,7 @@ export default function EOGUploader() {
   };
 
   const updateGyroSlice = (data, pageIndex) => {
-    const start = pageIndex * pageSize;
-    const end = start + pageSize;
+    const [start, end] = [pageIndex * pageSize, (pageIndex + 1) * pageSize];
     setGyroData({
       time: data.time.slice(start, end),
       g_x: data.g_x.slice(start, end),
@@ -102,51 +130,38 @@ export default function EOGUploader() {
     title: { text: title },
     tooltip: {
       trigger: 'axis',
-      axisPointer: {
-        type: 'cross',
-      },
+      axisPointer: { type: 'cross' },
     },
-    xAxis: {
-      type: 'category',
-      data: xData,
-    },
-    yAxis: {
-      type: 'value',
-      scale: true,
-    },
+    xAxis: { type: 'category', data: xData },
+    yAxis: { type: 'value', scale: true },
     dataZoom: [
-      {
-        type: 'inside',      // Enables zoom via scroll & drag on chart area
-        zoomOnMouseWheel: true,
-        moveOnMouseWheel: true,
-        moveOnMouseMove: true,
-        throttle: 50,
-      }
+      { type: 'inside', zoomOnMouseWheel: true, moveOnMouseWheel: true, moveOnMouseMove: true, throttle: 50 }
     ],
     toolbox: {
-      feature: {
-        dataZoom: {
-          yAxisIndex: 'none',
-        },
-        restore: {},   // Adds a reset button
-      },
+      feature: { dataZoom: { yAxisIndex: 'none' }, restore: {} },
     },
-    series: series,
+    series,
   });
-  
 
   return (
     <div className="ecg-wrapper">
       <h1 className="title">EOG Data</h1>
       {isLoading ? (
-        <Spinner />
+        <div className="ecg-loading-skeletons">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="chart-card">
+              <Skeleton height={30} width={200} style={{ marginBottom: 10 }} />
+              <Skeleton height={400} />
+              <Skeleton height={40} width={`50%`} style={{ marginTop: 10 }} />
+            </div>
+          ))}
+        </div>
       ) : (
         <>
           {qvarData && (
             <div className="chart-card">
               <ReactECharts
                 option={getEChartOption("QVAR Signal", qvarData.time, [
-                  
                   { data: qvarData.qvar, type: 'line', name: 'QVAR', lineStyle: { color: '#2c3e50' } },
                 ])}
                 style={{ height: 400 }}

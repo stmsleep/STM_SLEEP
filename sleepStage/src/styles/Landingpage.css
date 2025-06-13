@@ -1,15 +1,116 @@
-.visualize-button {
-    padding: 12px 24px;
-    font-size: 16px;
-    background-color: #4caf50;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: 0.3s ease;
-  }
-  
-  .visualize-button:hover {
-    background-color: #388e3c;
-  }
-  
+.landing {
+  font-family: 'Segoe UI', sans-serif;
+  color: #2d2d2d;
+  background-color: #ffffff;
+}
+
+.hero {
+  padding: 80px 20px;
+  text-align: center;
+  background-color: #f8fcff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.hero-title {
+  font-size: 3rem;
+  font-weight: 700;
+  color: #0056b3;
+}
+
+.hero-subtitle {
+  font-size: 1.2rem;
+  margin: 20px 0;
+  color: #444;
+}
+
+.start-button {
+  background-color: #007bff;
+  color: white;
+  padding: 12px 28px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.start-button:hover {
+  background-color: #0056b3;
+}
+
+.features {
+  padding: 60px 20px;
+  text-align: center;
+  background-color: #ffffff;
+}
+
+.features h2 {
+  font-size: 2rem;
+  margin-bottom: 40px;
+}
+
+.feature-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 30px;
+}
+
+.feature-item {
+  background-color: #f2f8ff;
+  border-radius: 12px;
+  padding: 20px;
+  width: 280px;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s;
+}
+
+.feature-item:hover {
+  transform: translateY(-5px);
+}
+
+.how-it-works {
+  padding: 60px 20px;
+  text-align: center;
+  background-color: #f9f9f9;
+  border-top: 1px solid #e0e0e0;
+}
+
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 30px;
+  margin-top: 30px;
+}
+
+.step {
+  background-color: #ffffff;
+  border: 1px solid #dce3eb;
+  border-radius: 10px;
+  padding: 20px;
+  width: 260px;
+}
+
+.step-number {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #007bff;
+}
+
+.cta {
+  padding: 60px 20px;
+  text-align: center;
+  background-color: #eef6ff;
+}
+
+.cta h2 {
+  font-size: 2rem;
+  color: #003366;
+}
+
+.cta p {
+  margin: 10px 0 20px;
+  font-size: 1.1rem;
+  color: #555;
+}
