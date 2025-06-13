@@ -7,8 +7,9 @@ import "react-loading-skeleton/dist/skeleton.css";
 import { parseNPZ } from "../utils/parseNpz"; // Ensure this uses fflate + numpy-parser
 
 export default function CSVUploader() {
-  const [prBpm, setprBpm] = useState([]);
   const [spo2, setspo2] = useState([]);
+  const [avg_sleep, setSleepBeat] = useState(null);
+  const [prBpm, setprBpm] = useState([]);
   const [times, setTimes] = useState([]);
   const [message, setMessage] = useState("");
 
@@ -39,9 +40,16 @@ export default function CSVUploader() {
         const pr_bpm = Array.from(npz["pr_bpm"] || []);
         const spo2 = Array.from(npz["spo2"] || []);
 
+        // ✅ Compute average from the FIRST 300 points only
+        const firstFiveMinPR = pr_bpm.slice(0, 300);
+        const sum = firstFiveMinPR.reduce((acc, val) => acc + val, 0);
+        const avgSleep = firstFiveMinPR.length > 0 ? sum / firstFiveMinPR.length : null;
+
         setTimes(time);
         setprBpm(pr_bpm);
         setspo2(spo2);
+        setSleepBeat(avgSleep);
+
         console.timeEnd("Total fetchPoints");
       } catch (error) {
         console.error(error);
@@ -77,7 +85,7 @@ export default function CSVUploader() {
           </p>
 
           {prBpm.length > 0 && times.length > 0 && (
-            <HeartRateChart prBpm={prBpm} times={times} />
+            <HeartRateChart prBpm={prBpm} times={times} avg_sleep={avg_sleep} />
           )}
 
           <h1 className="title">SpO2 Chart</h1>
