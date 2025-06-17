@@ -1,16 +1,35 @@
 import React, { useState } from "react";
 import ReactECharts from "echarts-for-react";
 
-export default function HeartRateChart({ prBpm, times }) {
+export default function HeartRateChart({ prBpm, times, avg_sleep = null }) {
   const [rangeStart, setRangeStart] = useState(0);
-  const [windowSize, setWindowSize] = useState(600); 
+  const windowSize = 600;
+  const rangeEnd = Math.min(rangeStart + windowSize, times.length);
+
+  const visibleTimes = times.slice(rangeStart, rangeEnd);
+  const visibleValues = prBpm.slice(rangeStart, rangeEnd);
+
+  // Generate awake/sleep scatter data using array index
+  const visibleAwakeData = [];
+  const visibleSleepData = [];
+
+  if (avg_sleep != null) {
+    for (let i = 0; i < visibleValues.length; i++) {
+      const value = visibleValues[i];
+
+      if (value >= avg_sleep) {
+        visibleAwakeData.push({ value: [i, value] });
+        visibleSleepData.push({ value: [i, null] });
+      } else {
+        visibleSleepData.push({ value: [i, value] });
+        visibleAwakeData.push({ value: [i, null] });
+      }
+    }
+  }
+
   const handleSliderChange = (e) => {
     setRangeStart(Number(e.target.value));
   };
-
-  const rangeEnd = Math.min(rangeStart + windowSize, times.length);
-  const visibleTimes = times.slice(rangeStart, rangeEnd);
-  const visibleValues = prBpm.slice(rangeStart, rangeEnd);
 
   const getOption = () => ({
     title: {
@@ -22,7 +41,7 @@ export default function HeartRateChart({ prBpm, times }) {
     },
     xAxis: {
       type: "category",
-      data: visibleTimes,
+      data: visibleTimes, // label
       name: "Time (s)",
       boundaryGap: false,
       axisLine: { lineStyle: { color: "#999" } },
@@ -43,40 +62,47 @@ export default function HeartRateChart({ prBpm, times }) {
         type: "line",
         data: visibleValues,
         showSymbol: true,
-        symbolSize: 5,
-        lineStyle: {
-          color: "#2c3e50",
-          width: 2,
-        },
-        itemStyle: {
-          color: "#2c3e50",
-        },
-        areaStyle: {
-          color: "rgba(44, 62, 80, 0.15)",
-        },
+        symbolSize: 4,
+        lineStyle: { color: "rgba(75,192,192,1)", width: 2 },
+        areaStyle: { color: "rgba(75,192,192,0.15)" },
+        emphasis: { focus: "series" },
       },
-    ],
+      avg_sleep != null && {
+        name: `Avg Heart Rate: ${avg_sleep.toFixed(1)} BPM`,
+        type: "line",
+        data: new Array(visibleValues.length).fill(avg_sleep),
+        lineStyle: { type: "dashed", color: "black", width: 1 },
+        showSymbol: false,
+        emphasis: { focus: "series" },
+      },
+      avg_sleep != null && {
+        name: "Awake",
+        type: "scatter",
+        data: visibleAwakeData,
+        symbolSize: 6,
+        itemStyle: { color: "#ff4d4f" },
+      },
+      avg_sleep != null && {
+        name: "Sleep",
+        type: "scatter",
+        data: visibleSleepData,
+        symbolSize: 6,
+        itemStyle: { color: "#00b894" },
+      },
+    ].filter(Boolean),
     grid: {
       left: "10%",
       right: "10%",
       bottom: "15%",
     },
-    dataZoom: [
-      {
-        type: 'inside',      // Enables zoom via scroll & drag on chart area
-        zoomOnMouseWheel: true,
-        moveOnMouseWheel: true,
-        moveOnMouseMove: true,
-        throttle: 50,
-      }
-    ],
     toolbox: {
       feature: {
-        dataZoom: {
-          yAxisIndex: 'none',
-        },
-        restore: {},   // Adds a reset button
+        dataZoom: { yAxisIndex: "none" },
+        restore: {},
       },
+    },
+    legend: {
+      bottom: 10,
     },
   });
 
@@ -103,7 +129,8 @@ export default function HeartRateChart({ prBpm, times }) {
           />
         </label>
         <p>
-          Showing data from {rangeStart}s to {rangeEnd}s
+          Showing data from <strong>{rangeStart}s</strong> to{" "}
+          <strong>{rangeEnd}s</strong>
         </p>
       </div>
     </div>
