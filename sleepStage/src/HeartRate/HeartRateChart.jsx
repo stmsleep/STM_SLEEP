@@ -1,36 +1,31 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import ReactECharts from "echarts-for-react";
 
 export default function HeartRateChart({ prBpm, times, avg_sleep = null }) {
   const [rangeStart, setRangeStart] = useState(0);
-  const windowSize = 600; // 5 minutes assuming 2Hz sampling rate
+  const windowSize = 600;
   const rangeEnd = Math.min(rangeStart + windowSize, times.length);
 
-  // Precompute classified full data only once using useMemo
-  const { awakeDataFull, sleepDataFull } = useMemo(() => {
-    const awakeData = [];
-    const sleepData = [];
-
-    if (avg_sleep != null) {
-      prBpm.forEach((val, i) => {
-        if (val >= avg_sleep) {
-          awakeData.push({ value: [times[i], val] });
-          sleepData.push({ value: [times[i], null] });
-        } else {
-          sleepData.push({ value: [times[i], val] });
-          awakeData.push({ value: [times[i], null] });
-        }
-      });
-    }
-
-    return { awakeDataFull: awakeData, sleepDataFull: sleepData };
-  }, [avg_sleep, prBpm, times]);
-
-  // Slice visible data
   const visibleTimes = times.slice(rangeStart, rangeEnd);
   const visibleValues = prBpm.slice(rangeStart, rangeEnd);
-  const visibleAwakeData = avg_sleep != null ? awakeDataFull.slice(rangeStart, rangeEnd) : [];
-  const visibleSleepData = avg_sleep != null ? sleepDataFull.slice(rangeStart, rangeEnd) : [];
+
+  // Generate awake/sleep scatter data using array index
+  const visibleAwakeData = [];
+  const visibleSleepData = [];
+
+  if (avg_sleep != null) {
+    for (let i = 0; i < visibleValues.length; i++) {
+      const value = visibleValues[i];
+
+      if (value >= avg_sleep) {
+        visibleAwakeData.push({ value: [i, value] });
+        visibleSleepData.push({ value: [i, null] });
+      } else {
+        visibleSleepData.push({ value: [i, value] });
+        visibleAwakeData.push({ value: [i, null] });
+      }
+    }
+  }
 
   const handleSliderChange = (e) => {
     setRangeStart(Number(e.target.value));
@@ -46,7 +41,7 @@ export default function HeartRateChart({ prBpm, times, avg_sleep = null }) {
     },
     xAxis: {
       type: "category",
-      data: visibleTimes,
+      data: visibleTimes, // label
       name: "Time (s)",
       boundaryGap: false,
       axisLine: { lineStyle: { color: "#999" } },
@@ -75,7 +70,7 @@ export default function HeartRateChart({ prBpm, times, avg_sleep = null }) {
       avg_sleep != null && {
         name: `Avg Heart Rate: ${avg_sleep.toFixed(1)} BPM`,
         type: "line",
-        data: new Array(visibleTimes.length).fill(avg_sleep),
+        data: new Array(visibleValues.length).fill(avg_sleep),
         lineStyle: { type: "dashed", color: "black", width: 1 },
         showSymbol: false,
         emphasis: { focus: "series" },

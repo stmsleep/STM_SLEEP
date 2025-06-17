@@ -21,6 +21,19 @@ from django.http import HttpResponse
 import io
 import time
 
+
+
+
+from django.http import HttpResponse
+
+def unauthorized_root(request):
+    return HttpResponse(
+        "<h1>401 Unauthorized</h1><p>This API is not meant for direct access.</p>",
+        content_type="text/html",
+        status=401
+    )
+
+
 User = get_user_model()
 
 

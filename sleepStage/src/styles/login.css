@@ -2,7 +2,7 @@
 :root {
   --primary-color: #4e8cff;
   --background-color: white;
-  --card-bg: #ffffff;
+  --card-bg: rgba(255,255,255,0.9);
   --text-color: #333;
   --input-bg: #f0f4f8;
   --input-border: #ccc;
@@ -27,7 +27,7 @@ body {
 }
 
 .login-card {
-  background-color: var(--card-bg);
+  /* background-color: var(--card-bg); */
   padding: 4.5rem 2rem;
   width: 100%;
   max-width: 400px;
