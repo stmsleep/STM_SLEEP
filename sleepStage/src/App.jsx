@@ -16,6 +16,7 @@ import {
 import Summary from "./summary/Summary";
 import UserList from "./components/UserList";
 import ECG from "./ECG/Ecg";
+import EEGVisualizer from "./EEG/EEGVisualizer"
 
 import './styles/App.css';
 import logo from './assets/logo.png';
@@ -70,6 +71,12 @@ function Layout() {
             >
               ECG
             </button>
+            <button 
+              onClick={()=> handleNav("/eeg")}
+              className={`nav-button ${isActive("/ecg") ? "active" : ""}`}
+            >
+              EEG
+            </button>
             <button
               onClick={() => handleNav("/userlist")}
               className={`nav-button ${isActive("/userlist") ? "active" : ""}`}
@@ -111,6 +118,7 @@ function App() {
         <Route path="summary" element={<Summary />} />
         <Route path="heartrate" element={<CSVUploader />} />
         <Route path="eog" element={<EOGUploader />} />
+        <Route path="eeg" element={<EEGVisualizer />} />
         <Route path="ecg" element={<ECG />} />
       </Route>
     </Routes>
