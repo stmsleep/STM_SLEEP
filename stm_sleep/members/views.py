@@ -1,3 +1,8 @@
+from .models import DropboxToken
+from datetime import timedelta
+from django.utils import timezone
+from django.shortcuts import redirect
+import requests
 from django.http import JsonResponse, StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
@@ -20,11 +25,12 @@ from .utils.convert_to_npz import *
 from django.http import HttpResponse
 import io
 import time
-
-
-
-
+import mne
+import numpy as np
 from django.http import HttpResponse
+import os
+import tempfile
+
 
 def unauthorized_root(request):
     return HttpResponse(
@@ -138,6 +144,7 @@ def set_active_user(request):
                 "heart_rate_csv": "",
                 "eog_txt": "",
                 "ecg_txt": "",
+                "eeg_edf": "",
             }
 
             for entry in result.entries:
@@ -145,17 +152,23 @@ def set_active_user(request):
                 if isinstance(entry, FileMetadata):
                     folder_files.append(entry.name)
                     if (entry.name.startswith('EMAY SpO2') and entry.name.endswith('.pdf')):
-                        request.session['files']["pdf_summary"] = base_dir + "/" + entry.name
+                        request.session['files']["pdf_summary"] = base_dir + \
+                            "/" + entry.name
 
                     if (entry.name.startswith('EMAY SpO2') and entry.name.endswith('.npz')):
-                        request.session['files']["heart_rate_csv"] = base_dir + "/" + entry.name
+                        request.session['files']["heart_rate_csv"] = base_dir + \
+                            "/" + entry.name
 
                     if (entry.name.endswith('_eog_000.npz')):
-                        request.session['files']["eog_txt"] = base_dir + "/" + entry.name
-                        
-                    if (entry.name.endswith("ecg_000.npz")):
-                        request.session['files']["ecg_txt"] = base_dir + "/" + entry.name
+                        request.session['files']["eog_txt"] = base_dir + \
+                            "/" + entry.name
 
+                    if (entry.name.endswith("ecg_000.npz")):
+                        request.session['files']["ecg_txt"] = base_dir + \
+                            "/" + entry.name
+                    if (entry.name.endswith("eeg_000.npz")):
+                        request.session['files']["eeg_edf"] = base_dir + \
+                            "/" + entry.name
             # print(request.session["files"])
             print("Completed")
 
@@ -173,28 +186,33 @@ def set_active_user(request):
     return JsonResponse({'error': 'Invalid request method'}, status=400)
 
 
-
-
-
 CHUNK_SIZE = 50 * 1024 * 1024  # 50 MB
 
 # -------------------- Dropbox Chunk Upload --------------------
+
+
 def upload_large_file(dbx, path, file_bytes):
-    upload_session_start_result = dbx.files_upload_session_start(file_bytes.read(CHUNK_SIZE))
+    upload_session_start_result = dbx.files_upload_session_start(
+        file_bytes.read(CHUNK_SIZE))
     cursor = dropbox.files.UploadSessionCursor(
         session_id=upload_session_start_result.session_id,
         offset=file_bytes.tell()
     )
-    commit = dropbox.files.CommitInfo(path=path, mode=dropbox.files.WriteMode.overwrite)
+    commit = dropbox.files.CommitInfo(
+        path=path, mode=dropbox.files.WriteMode.overwrite)
 
     while file_bytes.tell() < len(file_bytes.getvalue()):
         if (len(file_bytes.getvalue()) - file_bytes.tell()) <= CHUNK_SIZE:
-            dbx.files_upload_session_finish(file_bytes.read(CHUNK_SIZE), cursor, commit)
+            dbx.files_upload_session_finish(
+                file_bytes.read(CHUNK_SIZE), cursor, commit)
         else:
-            dbx.files_upload_session_append_v2(file_bytes.read(CHUNK_SIZE), cursor)
+            dbx.files_upload_session_append_v2(
+                file_bytes.read(CHUNK_SIZE), cursor)
             cursor.offset = file_bytes.tell()
 
 # -------------------- NPZ Saver --------------------
+
+
 def save_npz_to_dropbox(dbx, np_data_dict, dropbox_path, threshold=150 * 1024 * 1024):
     npz_bytes = io.BytesIO()
     np.savez_compressed(npz_bytes, **np_data_dict)
@@ -204,8 +222,8 @@ def save_npz_to_dropbox(dbx, np_data_dict, dropbox_path, threshold=150 * 1024 * 
         print("Using chunked upload for large .npz")
         upload_large_file(dbx, dropbox_path, npz_bytes)
     else:
-        dbx.files_upload(npz_bytes.getvalue(), dropbox_path, mode=dropbox.files.WriteMode.overwrite)
-
+        dbx.files_upload(npz_bytes.getvalue(), dropbox_path,
+                         mode=dropbox.files.WriteMode.overwrite)
 
 
 @csrf_exempt
@@ -228,23 +246,26 @@ def upload_folder(request):
                 continue
 
             file_obj = request.FILES[file_key]
+            print("File Object :", file_obj)
             rel_path = request.POST[path_key]
             filename = file_obj.name
+            print(filename)
             full_dropbox_path = f"/STM-Sleep/{user}/{rel_path}"
             file_bytes = file_obj.read()
             file_stream = io.BytesIO(file_bytes)
-
+            npz_data = None
             if filename.endswith(".pdf"):
                 print(f"Uploading PDF: {full_dropbox_path}")
                 if len(file_bytes) > 150 * 1024 * 1024:
-                    upload_large_file(dbx, full_dropbox_path, io.BytesIO(file_bytes))
+                    upload_large_file(dbx, full_dropbox_path,
+                                      io.BytesIO(file_bytes))
                 else:
-                    dbx.files_upload(file_bytes, full_dropbox_path, mode=dropbox.files.WriteMode.overwrite)
+                    dbx.files_upload(file_bytes, full_dropbox_path,
+                                     mode=dropbox.files.WriteMode.overwrite)
 
             elif filename.endswith(".csv") or filename.endswith(".txt"):
                 print(f"Preprocessing {filename} to NPZ")
                 content_str = file_bytes.decode("utf-8")
-                npz_data = None
 
                 if filename.startswith("EMAY SpO2") and filename.endswith(".csv"):
                     npz_data = process_heart_to_npz(io.StringIO(content_str))
@@ -258,7 +279,25 @@ def upload_folder(request):
 
                 npz_path = full_dropbox_path.rsplit(".", 1)[0] + ".npz"
                 save_npz_to_dropbox(dbx, npz_data, npz_path)
+            elif filename.startswith('STME') and filename.endswith(".edf"):
+                print(f"UPLOADING SLEEP EDF :{full_dropbox_path}")
+                if len(file_bytes) > 150 * 1024 * 1024:
+                    upload_large_file(dbx, full_dropbox_path,
+                                      io.BytesIO(file_bytes))
+                else:
+                    print(f"Preprocessing {filename} to NPZ")
+                    # file_stream = io.BytesIO(file_obj.read())
+                    # raw = mne.io.read_raw_edf(file_stream, preload=True)
+                    # data, times = raw.get_data(return_times=True)
+                    with open("temp_upload.edf", "wb") as f:
+                        f.write(file_bytes)
 
+                    raw = mne.io.read_raw_edf("temp_upload.edf", preload=True)
+                    data, times = raw.get_data(return_times=True)
+                    npz_data = {"data": data, "times": times}
+                    os.remove("temp_upload.edf")
+                npz_path = full_dropbox_path.rsplit(".", 1)[0] + ".npz"
+                save_npz_to_dropbox(dbx, npz_data, npz_path)
             else:
                 print(f"Skipping unsupported file: {filename}")
 
@@ -270,8 +309,6 @@ def upload_folder(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-
-
 @csrf_exempt
 def heart_rate(request):
 
@@ -281,12 +318,14 @@ def heart_rate(request):
             return JsonResponse({'error': 'Missing Dropbox file info'}, status=400)
 
         dbx = get_dropbox_client()
-        link = dbx.files_get_temporary_link(active_folder['heart_rate_csv']).link
-        return JsonResponse({"url":link})
+        link = dbx.files_get_temporary_link(
+            active_folder['heart_rate_csv']).link
+        return JsonResponse({"url": link})
 
     except Exception as e:
         traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
+
 
 def process_eog(request):
 
@@ -299,8 +338,8 @@ def process_eog(request):
         # return response
         dbx = get_dropbox_client()
         link = dbx.files_get_temporary_link(active_folder['eog_txt']).link
-        return JsonResponse({"url":link})
-    
+        return JsonResponse({"url": link})
+
     except Exception as e:
         traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
@@ -316,14 +355,14 @@ def process_ecg(request):
 
         dbx = get_dropbox_client()
         link = dbx.files_get_temporary_link(active_folder['ecg_txt']).link
-        return JsonResponse({"url":link})
+        return JsonResponse({"url": link})
 
         return response
-    
+
     except Exception as e:
         traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
-    
+
 
 @csrf_exempt
 def load_summary_pdf(request):
@@ -337,19 +376,17 @@ def load_summary_pdf(request):
             traceback.print_exc()
             return JsonResponse({"Error": str(e)}, status=500)
 
+# @csrf_excempt
+# def process_eeg(request):
+#     try:
+#         active_folder=request.session.get('files')
+
 
 # Dropbox token creation
 
-#https://www.dropbox.com/oauth2/authorize?client_id=YOUR_APP_KEY&response_type=code&redirect_uri=YOUR_REDIRECT_URI&token_access_type=offline
-#this is url to get refresh token at first
+# https://www.dropbox.com/oauth2/authorize?client_id=YOUR_APP_KEY&response_type=code&redirect_uri=YOUR_REDIRECT_URI&token_access_type=offline
+# this is url to get refresh token at first
 
-import requests
-from django.conf import settings
-from django.shortcuts import redirect
-from django.http import HttpResponse
-from django.utils import timezone
-from datetime import timedelta
-from .models import DropboxToken
 
 def dropbox_oauth_callback(request):
     code = request.GET.get('code')
