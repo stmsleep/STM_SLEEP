@@ -17,6 +17,7 @@
     "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.2",
     "fflate": "^0.8.2",
+    "npyjs": "^0.7.0",
     "numpy-parser": "^1.2.3",
     "pako": "^2.1.0",
     "pdfjs-dist": "^5.2.133",

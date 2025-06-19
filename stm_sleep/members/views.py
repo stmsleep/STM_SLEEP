@@ -166,9 +166,10 @@ def set_active_user(request):
                     if (entry.name.endswith("ecg_000.npz")):
                         request.session['files']["ecg_txt"] = base_dir + \
                             "/" + entry.name
-                    if (entry.name.endswith("eeg_000.npz")):
+                    if (entry.name.startswith('STME') and entry.name.endswith(".edf")):
                         request.session['files']["eeg_edf"] = base_dir + \
                             "/" + entry.name
+
             # print(request.session["files"])
             print("Completed")
 
@@ -214,16 +215,27 @@ def upload_large_file(dbx, path, file_bytes):
 
 
 def save_npz_to_dropbox(dbx, np_data_dict, dropbox_path, threshold=150 * 1024 * 1024):
-    npz_bytes = io.BytesIO()
-    np.savez_compressed(npz_bytes, **np_data_dict)
-    npz_bytes.seek(0)
+    try:
+        npz_bytes = io.BytesIO()
+        np.savez_compressed(npz_bytes, **np_data_dict)
+        npz_bytes.seek(0)
 
-    if len(npz_bytes.getvalue()) > threshold:
-        print("Using chunked upload for large .npz")
-        upload_large_file(dbx, dropbox_path, npz_bytes)
-    else:
-        dbx.files_upload(npz_bytes.getvalue(), dropbox_path,
-                         mode=dropbox.files.WriteMode.overwrite)
+        file_size = len(npz_bytes.getvalue())
+
+        if file_size > threshold:
+            print(f"📦 Large .npz ({file_size / (1024*1024):.2f} MB) — using chunked upload")
+            upload_large_file(dbx, dropbox_path, npz_bytes)
+        else:
+            print(f"📦 Uploading .npz ({file_size / (1024*1024):.2f} MB) directly")
+            dbx.files_upload(npz_bytes.getvalue(), dropbox_path,
+                             mode=dropbox.files.WriteMode.overwrite)
+
+        print(f"✅ Saved to Dropbox: {dropbox_path}")
+
+    except Exception as e:
+        print(f"❌ Failed to upload .npz to Dropbox: {e}")
+        traceback.print_exc()
+
 
 
 @csrf_exempt
@@ -279,27 +291,27 @@ def upload_folder(request):
 
                 npz_path = full_dropbox_path.rsplit(".", 1)[0] + ".npz"
                 save_npz_to_dropbox(dbx, npz_data, npz_path)
-            elif filename.startswith('STME') and filename.endswith(".edf"):
-                print(f"UPLOADING SLEEP EDF :{full_dropbox_path}")
-                if len(file_bytes) > 150 * 1024 * 1024:
-                    upload_large_file(dbx, full_dropbox_path,
-                                      io.BytesIO(file_bytes))
-                else:
-                    print(f"Preprocessing {filename} to NPZ")
-                    # file_stream = io.BytesIO(file_obj.read())
-                    # raw = mne.io.read_raw_edf(file_stream, preload=True)
-                    # data, times = raw.get_data(return_times=True)
-                    with open("temp_upload.edf", "wb") as f:
-                        f.write(file_bytes)
 
-                    raw = mne.io.read_raw_edf("temp_upload.edf", preload=True)
-                    data, times = raw.get_data(return_times=True)
-                    npz_data = {"data": data, "times": times}
-                    os.remove("temp_upload.edf")
-                npz_path = full_dropbox_path.rsplit(".", 1)[0] + ".npz"
-                save_npz_to_dropbox(dbx, npz_data, npz_path)
-            else:
-                print(f"Skipping unsupported file: {filename}")
+
+            elif filename.startswith("STME") and filename.endswith(".edf"):
+                print(f"📤 Uploading {filename} as EDF to Dropbox without preprocessing...")
+
+                try:
+                    from io import BytesIO
+
+                    # Wrap the file_bytes in BytesIO so it can be read in chunks
+                    file_buffer = BytesIO(file_bytes)
+
+                    # Upload using your large file uploader
+                    upload_large_file(dbx, full_dropbox_path, file_buffer)
+
+                    print(f"✅ Uploaded EDF file: {full_dropbox_path}")
+
+                except Exception as e:
+                    print(f"❌ Failed to upload EDF file: {e}")
+
+
+
 
         return JsonResponse({'message': 'Folder uploaded successfully'})
 
@@ -357,11 +369,56 @@ def process_ecg(request):
         link = dbx.files_get_temporary_link(active_folder['ecg_txt']).link
         return JsonResponse({"url": link})
 
-        return response
-
     except Exception as e:
         traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
+    
+
+@csrf_exempt
+def process_eeg(request):
+    active_folder = request.session.get('files')
+    if active_folder:
+        try:
+            eeg_edf_path = active_folder['eeg_edf']
+            dbx = get_dropbox_client()
+
+            # Download EDF from Dropbox
+            metadata, res = dbx.files_download(eeg_edf_path)
+            edf_bytes = res.content
+
+            # Write bytes to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".edf") as tmp_file:
+                tmp_file.write(edf_bytes)
+                tmp_file_path = tmp_file.name
+
+            # Load EDF from temp file
+            raw = mne.io.read_raw_edf(tmp_file_path, preload=True, verbose=False)
+
+            # Clean up: optional (you can delete manually after if needed)
+            os.unlink(tmp_file_path)
+
+            # Select desired channels
+            desired_channels = ['AF3', 'AF4', 'T7', 'Pz', 'T8'] #['EEG Fpz-Cz']  # or more: 
+            raw.pick_channels(desired_channels)
+
+            # Get full data and time
+            data, times = raw[:]
+
+            # Optional downsampling to reduce response size
+            
+            return JsonResponse({
+                "channels": desired_channels,
+                "times": times.tolist(),
+                "data": data[0].tolist(),  # single channel
+                "sampling_rate": raw.info['sfreq'],
+                "units": "µV"
+            }, safe=False)
+
+        except Exception as e:
+            traceback.print_exc()
+            return JsonResponse({"error": str(e)}, status=500)
+
+
 
 
 @csrf_exempt
@@ -376,10 +433,6 @@ def load_summary_pdf(request):
             traceback.print_exc()
             return JsonResponse({"Error": str(e)}, status=500)
 
-# @csrf_excempt
-# def process_eeg(request):
-#     try:
-#         active_folder=request.session.get('files')
 
 
 # Dropbox token creation

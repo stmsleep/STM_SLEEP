@@ -12,6 +12,7 @@ urlpatterns = [
     path('process_eog/',views.process_eog,name='process_eog'),
     path('get_summary_pdf/',views.load_summary_pdf,name="get_summary_pdf"),
     path('process_ecg/',views.process_ecg,name='process_eog'),
+    path('process_eeg/',views.process_eeg),
 
     #dropbox token
     path('', views.dropbox_oauth_callback, name='dropbox_callback'),
