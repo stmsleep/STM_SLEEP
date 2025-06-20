@@ -1,3 +1,5 @@
+from io import BytesIO
+import matplotlib.pyplot as plt
 from .models import DropboxToken
 from datetime import timedelta
 from django.utils import timezone
@@ -31,6 +33,9 @@ from django.http import HttpResponse
 import os
 import tempfile
 from scipy.signal import butter, filtfilt
+from django.core.serializers.json import DjangoJSONEncoder
+import matplotlib
+matplotlib.use("Agg")
 
 
 def unauthorized_root(request):
@@ -383,71 +388,265 @@ def bandpass_filter(signal, lowcut, highcut, fs, order=4):
 
 @csrf_exempt
 def process_eeg(request, channel_name):
+    # active_folder = request.session.get('files')
+    # if active_folder:
+    #     try:
+    #         eeg_edf_path = active_folder['eeg_edf']
+    #         dbx = get_dropbox_client()
+
+    #         # Download EDF from Dropbox
+    #         metadata, res = dbx.files_download(eeg_edf_path)
+    #         edf_bytes = res.content
+
+    #         # Write bytes to temporary file
+    #         with tempfile.NamedTemporaryFile(delete=False, suffix=".edf") as tmp_file:
+    #             tmp_file.write(edf_bytes)
+    #             tmp_file_path = tmp_file.name
+
+    #         # Load EDF from temp file
+    #         raw = mne.io.read_raw_edf(
+    #             tmp_file_path, preload=True, verbose=False)
+
+    #         # Clean up: optional (you can delete manually after if needed)
+    #         os.unlink(tmp_file_path)
+
+    #         # Select desired channels
+    #         # ['EEG Fpz-Cz']  # or more:
+    #         bands = {
+    #             'delta': (0.5, 4),
+    #             'theta': (4, 8),
+    #             'alpha': (8, 13),
+    #             'beta': (13, 30),
+    #             'gamma': (30, 45),
+    #         }
+
+    #         raw.pick_channels([channel_name])
+    #         sf = raw.info['sfreq']
+    #         print("SAMPLING FREQUENCY :", sf)
+    #         signal, times = raw.get_data(return_times=True)
+    #         print("Signal:", signal)
+    #         print("SIGNAL INDEX 0 : ", signal[0])
+
+    #         bands_data = {}
+    #         for band_name, (low, high) in bands.items():
+    #             filtered = bandpass_filter(signal, low, high, sf)
+    #             # convert NumPy to list for JSON
+    #             bands_data[band_name] = filtered.tolist()
+    #             # bands_data[band_name] = np.asarray(
+    #             #     filtered).flatten().astype(float).tolist()
+    #         # Prepare response
+
+    #         print("Times :", times)
+
+    #         return HttpResponse(
+    #             json.dumps({
+    #                 "channel": channel_name,
+    #                 "sampling_rate": float(sf),
+    #                 "signal": signal[0].tolist(),
+    #                 "times": times.tolist(),
+    #                 "bands": bands_data
+    #             }, cls=DjangoJSONEncoder),
+    #             content_type="application/json"
+    #         )
+
+    #     except Exception as e:
+    #         traceback.print_exc()
+    #         return JsonResponse({"error": str(e)}, status=500)
+    # active_folder = request.session.get('files')
+    # username = request.session.get('user')
+    # if active_folder:
+    #     try:
+    #         eeg_edf_path = active_folder['eeg_edf']
+    #         dbx = get_dropbox_client()
+
+    #         # Download EDF from Dropbox
+    #         metadata, res = dbx.files_download(eeg_edf_path)
+    #         edf_bytes = res.content
+
+    #         # Temp file to read EDF
+    #         with tempfile.NamedTemporaryFile(delete=False, suffix=".edf") as tmp_file:
+    #             tmp_file.write(edf_bytes)
+    #             tmp_file_path = tmp_file.name
+
+    #         raw = mne.io.read_raw_edf(
+    #             tmp_file_path, preload=True, verbose=False)
+    #         os.unlink(tmp_file_path)
+
+    #         if channel_name not in raw.ch_names:
+    #             return JsonResponse({"error": f"Channel '{channel_name}' not found"}, status=400)
+
+    #         raw.pick_channels([channel_name])
+    #         sf = raw.info['sfreq']
+    #         signal, times = raw.get_data(return_times=True)
+    #         signal = signal[0]
+    #         times = times
+
+    #         # 📁 Dropbox caching: check if band image exists
+    #         plot_dropbox_path = f"/STM-Sleep/{username}/eeg_bands/{channel_name}_bands.png"
+    #         band_image_link = None
+
+    #         try:
+    #             # Check if file already exists
+    #             dbx.files_get_metadata(plot_dropbox_path)
+
+    #             # If exists, generate direct link
+    #             shared_link_metadata = dbx.sharing_create_shared_link_with_settings(
+    #                 plot_dropbox_path)
+    #             band_image_link = shared_link_metadata.url.replace(
+    #                 "?dl=0", "?raw=1")
+
+    #         except dropbox.exceptions.ApiError:
+    #             # File doesn't exist – generate and upload
+
+    #             bands = {
+    #                 'delta': (0.5, 4),
+    #                 'theta': (4, 8),
+    #                 'alpha': (8, 13),
+    #                 'beta': (13, 30),
+    #                 'gamma': (30, 45),
+    #             }
+
+    #             fig, axs = plt.subplots(
+    #                 len(bands), 1, figsize=(12, 8), sharex=True)
+    #             fig.suptitle(f"Frequency Bands - {channel_name}", fontsize=14)
+
+    #             for idx, (band_name, (low, high)) in enumerate(bands.items()):
+    #                 filtered = bandpass_filter(signal, low, high, sf)
+    #                 axs[idx].plot(times, filtered, linewidth=0.8)
+    #                 axs[idx].set_title(
+    #                     f"{band_name.capitalize()} ({low}-{high} Hz)")
+    #                 axs[idx].set_ylabel("µV")
+    #                 axs[idx].grid(True)
+
+    #             axs[-1].set_xlabel("Time (s)")
+    #             plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+    #             buf = BytesIO()
+    #             plt.savefig(buf, format="png")
+    #             plt.close(fig)
+    #             buf.seek(0)
+
+    #             dbx.files_upload(buf.read(), plot_dropbox_path,
+    #                              mode=dropbox.files.WriteMode.overwrite)
+
+    #             shared_link_metadata = dbx.sharing_create_shared_link_with_settings(
+    #                 plot_dropbox_path)
+    #             band_image_link = shared_link_metadata.url.replace(
+    #                 "?dl=0", "?raw=1")
+
+    #         return JsonResponse({
+    #             "channel": channel_name,
+    #             "sampling_rate": float(sf),
+    #             "signal": signal.astype(float).tolist(),
+    #             "times": times.astype(float).tolist(),
+    #             "bands_image": band_image_link
+    #         })
+
+    #     except Exception as e:
+    #         traceback.print_exc()
+    #         return JsonResponse({"error": str(e)}, status=500)
+
+    # return JsonResponse({"error": "No EEG session folder found"}, status=400)
     active_folder = request.session.get('files')
-    if active_folder:
+    if not active_folder:
+        return JsonResponse({"error": "No active folder in session"}, status=400)
+
+    try:
+        eeg_edf_path = active_folder['eeg_edf']
+        dbx = get_dropbox_client()
+
+        # Step 1: Download EDF
+        _, res = dbx.files_download(eeg_edf_path)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".edf") as tmp_file:
+            tmp_file.write(res.content)
+            tmp_file_path = tmp_file.name
+
+        raw = mne.io.read_raw_edf(tmp_file_path, preload=True, verbose=False)
+        os.unlink(tmp_file_path)
+
+        # mne>=1.4+ uses .pick() instead of pick_channels
+        raw.pick([channel_name])
+        sf = raw.info['sfreq']
+        signal, times = raw.get_data(return_times=True)
+
+        # Step 2: Frequency Bands
+        bands = {
+            'delta': (0.5, 4),
+            'theta': (4, 8),
+            'alpha': (8, 13),
+            'beta': (13, 30),
+            'gamma': (30, 45),
+        }
+
+        bands_data = {}
+        for band_name, (low, high) in bands.items():
+            filtered = bandpass_filter(signal, low, high, sf)
+            bands_data[band_name] = filtered.tolist()
+
+        # Step 3: Generate and Upload Band Image
+        user_email = request.session.get('user')
+        plot_dropbox_path = f"/STM-Sleep/{user_email}/{channel_name}_bands.png"
+
+        # If image doesn't exist, generate and upload
         try:
-            eeg_edf_path = active_folder['eeg_edf']
-            dbx = get_dropbox_client()
+            dbx.files_get_metadata(plot_dropbox_path)
+        except Exception:
+            fig, axs = plt.subplots(
+                len(bands_data), 1, figsize=(12, 8), sharex=True)
+            if len(bands_data) == 1:
+                axs = [axs]
+            for i, (band, data) in enumerate(bands_data.items()):
+                axs[i].plot(times, data[0], label=band, linewidth=0.5)
+                axs[i].set_title(f"{band.upper()} Band")
+                axs[i].legend()
+            axs[-1].set_xlabel("Time (s)")
+            fig.tight_layout()
 
-            # Download EDF from Dropbox
-            metadata, res = dbx.files_download(eeg_edf_path)
-            edf_bytes = res.content
+            buf = io.BytesIO()
+            plt.savefig(buf, format="png")
+            plt.close(fig)
+            buf.seek(0)
 
-            # Write bytes to temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".edf") as tmp_file:
-                tmp_file.write(edf_bytes)
-                tmp_file_path = tmp_file.name
+            dbx.files_upload(buf.read(), plot_dropbox_path,
+                             mode=dropbox.files.WriteMode.overwrite)
 
-            # Load EDF from temp file
-            raw = mne.io.read_raw_edf(
-                tmp_file_path, preload=True, verbose=False)
+        # Step 4: Get public link (safe)
+        try:
+            shared_link_metadata = dbx.sharing_create_shared_link_with_settings(
+                plot_dropbox_path)
+        except dropbox.exceptions.ApiError as e:
+            if (e.error.is_shared_link_already_exists()
+                    or "shared_link_already_exists" in str(e).lower()):
+                links = dbx.sharing_list_shared_links(
+                    path=plot_dropbox_path).links
+                if links:
+                    shared_link_metadata = links[0]
+                else:
+                    raise e
+            else:
+                raise e
+        if not shared_link_metadata:
+            print("No shared link metadata available!")
+        else:
+            print("IMAGE LINK:", shared_link_metadata.url.replace("?dl=0", "?raw=1"))
 
-            # Clean up: optional (you can delete manually after if needed)
-            os.unlink(tmp_file_path)
+        band_image_link = shared_link_metadata.url
+        if "dl=0" in band_image_link:
+            band_image_link = band_image_link.replace("dl=0", "raw=1")
+        else:
+            band_image_link += "?raw=1"
+        print("IMAGE LINK:", band_image_link)
+        return JsonResponse({
+            "channel": channel_name,
+            "sampling_rate": sf,
+            "signal": signal[0].tolist(),
+            "times": times.tolist(),
+            "band_plot_url": band_image_link  # pass image link only, not raw band data
+        }, safe=False)
 
-            # Select desired channels
-            # ['EEG Fpz-Cz']  # or more:
-            bands = {
-                'delta': (0.5, 4),
-                'theta': (4, 8),
-                'alpha': (8, 13),
-                'beta': (13, 30),
-                'gamma': (30, 45),
-            }
-
-            raw.pick_channels([channel_name])
-            sf = raw.info['sfreq']
-            print("SAMPLING FREQUENCY :", sf)
-            signal, times = raw.get_data(return_times=True)
-            print("Signal:", signal)
-            print("SIGNAL INDEX 0", signal[0])
-
-            bands_data = {}
-            for band_name, (low, high) in bands.items():
-                filtered = bandpass_filter(signal, low, high, sf)
-                # convert NumPy to list for JSON
-                bands_data[band_name] = filtered.tolist()
-
-            # Prepare response
-            response = {
-                "channel": channel_name,
-                "sampling_rate": sf,
-                "signal": signal[0].tolist(),
-                "times": times.tolist(),
-                "bands": bands_data
-            }
-            print(response)
-            return JsonResponse({
-                "channel": channel_name,
-                "sampling_rate": sf,
-                "signal": signal[0].tolist(),
-                "times": times.tolist(),
-                "bands": bands_data
-            }, safe=False)
-
-        except Exception as e:
-            traceback.print_exc()
-            return JsonResponse({"error": str(e)}, status=500)
+    except Exception as e:
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 @csrf_exempt
