@@ -30,6 +30,7 @@ import numpy as np
 from django.http import HttpResponse
 import os
 import tempfile
+from scipy.signal import butter, filtfilt
 
 
 def unauthorized_root(request):
@@ -223,10 +224,12 @@ def save_npz_to_dropbox(dbx, np_data_dict, dropbox_path, threshold=150 * 1024 * 
         file_size = len(npz_bytes.getvalue())
 
         if file_size > threshold:
-            print(f"📦 Large .npz ({file_size / (1024*1024):.2f} MB) — using chunked upload")
+            print(
+                f"📦 Large .npz ({file_size / (1024*1024):.2f} MB) — using chunked upload")
             upload_large_file(dbx, dropbox_path, npz_bytes)
         else:
-            print(f"📦 Uploading .npz ({file_size / (1024*1024):.2f} MB) directly")
+            print(
+                f"📦 Uploading .npz ({file_size / (1024*1024):.2f} MB) directly")
             dbx.files_upload(npz_bytes.getvalue(), dropbox_path,
                              mode=dropbox.files.WriteMode.overwrite)
 
@@ -235,7 +238,6 @@ def save_npz_to_dropbox(dbx, np_data_dict, dropbox_path, threshold=150 * 1024 * 
     except Exception as e:
         print(f"❌ Failed to upload .npz to Dropbox: {e}")
         traceback.print_exc()
-
 
 
 @csrf_exempt
@@ -292,9 +294,9 @@ def upload_folder(request):
                 npz_path = full_dropbox_path.rsplit(".", 1)[0] + ".npz"
                 save_npz_to_dropbox(dbx, npz_data, npz_path)
 
-
             elif filename.startswith("STME") and filename.endswith(".edf"):
-                print(f"📤 Uploading {filename} as EDF to Dropbox without preprocessing...")
+                print(
+                    f"📤 Uploading {filename} as EDF to Dropbox without preprocessing...")
 
                 try:
                     from io import BytesIO
@@ -309,9 +311,6 @@ def upload_folder(request):
 
                 except Exception as e:
                     print(f"❌ Failed to upload EDF file: {e}")
-
-
-
 
         return JsonResponse({'message': 'Folder uploaded successfully'})
 
@@ -372,10 +371,18 @@ def process_ecg(request):
     except Exception as e:
         traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
-    
+
+
+def bandpass_filter(signal, lowcut, highcut, fs, order=4):
+    nyquist = 0.5 * fs
+    low = lowcut / nyquist
+    high = highcut / nyquist
+    b, a = butter(order, [low, high], btype='band')
+    return filtfilt(b, a, signal)
+
 
 @csrf_exempt
-def process_eeg(request):
+def process_eeg(request, channel_name):
     active_folder = request.session.get('files')
     if active_folder:
         try:
@@ -392,33 +399,55 @@ def process_eeg(request):
                 tmp_file_path = tmp_file.name
 
             # Load EDF from temp file
-            raw = mne.io.read_raw_edf(tmp_file_path, preload=True, verbose=False)
+            raw = mne.io.read_raw_edf(
+                tmp_file_path, preload=True, verbose=False)
 
             # Clean up: optional (you can delete manually after if needed)
             os.unlink(tmp_file_path)
 
             # Select desired channels
-            desired_channels = ['AF3', 'AF4', 'T7', 'Pz', 'T8'] #['EEG Fpz-Cz']  # or more: 
-            raw.pick_channels(desired_channels)
+            # ['EEG Fpz-Cz']  # or more:
+            bands = {
+                'delta': (0.5, 4),
+                'theta': (4, 8),
+                'alpha': (8, 13),
+                'beta': (13, 30),
+                'gamma': (30, 45),
+            }
 
-            # Get full data and time
-            data, times = raw[:]
+            raw.pick_channels([channel_name])
+            sf = raw.info['sfreq']
+            print("SAMPLING FREQUENCY :", sf)
+            signal, times = raw.get_data(return_times=True)
+            print("Signal:", signal)
+            print("SIGNAL INDEX 0", signal[0])
 
-            # Optional downsampling to reduce response size
-            
-            return JsonResponse({
-                "channels": desired_channels,
+            bands_data = {}
+            for band_name, (low, high) in bands.items():
+                filtered = bandpass_filter(signal, low, high, sf)
+                # convert NumPy to list for JSON
+                bands_data[band_name] = filtered.tolist()
+
+            # Prepare response
+            response = {
+                "channel": channel_name,
+                "sampling_rate": sf,
+                "signal": signal[0].tolist(),
                 "times": times.tolist(),
-                "data": data[0].tolist(),  # single channel
-                "sampling_rate": raw.info['sfreq'],
-                "units": "µV"
+                "bands": bands_data
+            }
+            print(response)
+            return JsonResponse({
+                "channel": channel_name,
+                "sampling_rate": sf,
+                "signal": signal[0].tolist(),
+                "times": times.tolist(),
+                "bands": bands_data
             }, safe=False)
 
         except Exception as e:
             traceback.print_exc()
             return JsonResponse({"error": str(e)}, status=500)
-
-
 
 
 @csrf_exempt
@@ -432,7 +461,6 @@ def load_summary_pdf(request):
         except Exception as e:
             traceback.print_exc()
             return JsonResponse({"Error": str(e)}, status=500)
-
 
 
 # Dropbox token creation
