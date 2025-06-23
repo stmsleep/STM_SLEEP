@@ -3,17 +3,18 @@ from . import views
 from .views import LoginView
 
 urlpatterns = [
-    path('', views.unauthorized_root),  # root path
     path('api/login/', LoginView.as_view(), name='login'),
-    path('list_user_folders/',views.list_user_folders,name='list_user_folders'),
-    path('upload_folder/',views.upload_folder),
+    path('list_user_folders/', views.list_user_folders, name='list_user_folders'),
+    path('upload_folder/', views.upload_folder),
     path('set_active_user/', views.set_active_user, name='set_active_user'),
     path('upload_csv/', views.heart_rate, name='upload_csv'),
-    path('process_eog/',views.process_eog,name='process_eog'),
-    path('get_summary_pdf/',views.load_summary_pdf,name="get_summary_pdf"),
-    path('process_ecg/',views.process_ecg,name='process_eog'),
+    path('process_eog/', views.process_eog, name='process_eog'),
+    path('get_summary_pdf/', views.load_summary_pdf, name="get_summary_pdf"),
+    path('process_ecg/', views.process_ecg, name='process_eog'),
+    path('process_eeg/<str:channel_name>/', views.process_eeg),
 
-    #dropbox token
+    # dropbox token
     path('', views.dropbox_oauth_callback, name='dropbox_callback'),
+    # path('', views.unauthorized_root),  # root path
 
 ]
