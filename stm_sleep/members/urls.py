@@ -3,7 +3,6 @@ from . import views
 from .views import LoginView
 
 urlpatterns = [
-    path('', views.unauthorized_root),  # root path
     path('api/login/', LoginView.as_view(), name='login'),
     path('list_user_folders/', views.list_user_folders, name='list_user_folders'),
     path('upload_folder/', views.upload_folder),
@@ -16,5 +15,6 @@ urlpatterns = [
 
     # dropbox token
     path('', views.dropbox_oauth_callback, name='dropbox_callback'),
+    path('', views.unauthorized_root),  # root path
 
 ]
