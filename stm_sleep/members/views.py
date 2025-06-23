@@ -139,6 +139,7 @@ def set_active_user(request):
 
             dbx = get_dropbox_client()
             user = request.session["user"]
+            request.session['folder_name'] = folder
             base_dir = f"/STM-Sleep/{user}/"
             base_dir += folder
 
@@ -396,7 +397,29 @@ def process_eeg(request, channel_name):
         eeg_edf_path = active_folder['eeg_edf']
         dbx = get_dropbox_client()
 
-        # Step 1: Download EDF
+        user_email = request.session.get('user')
+        folder_name = request.session.get('folder_name')
+        plot_path = f"/STM-Sleep/{user_email}/{folder_name}/{channel_name}_bands.png"
+        npz_path = f"/STM-Sleep/{user_email}/{folder_name}/{channel_name}_eeg.npz"
+
+        # Check if both files already exist
+        try:
+            dbx.files_get_metadata(plot_path)
+            dbx.files_get_metadata(npz_path)
+
+            band_link = dbx.files_get_temporary_link(plot_path).link
+            npz_link = dbx.files_get_temporary_link(npz_path).link
+
+            return JsonResponse({
+                "channel": channel_name,
+                "sampling_rate": 256,  # optional default
+                "band_plot_url": band_link,
+                "npz_link": npz_link,
+            })
+        except dropbox.exceptions.ApiError:
+            pass  # One or both files missing, proceed to generate
+
+        # Download EDF
         _, res = dbx.files_download(eeg_edf_path)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".edf") as tmp_file:
             tmp_file.write(res.content)
@@ -405,12 +428,11 @@ def process_eeg(request, channel_name):
         raw = mne.io.read_raw_edf(tmp_file_path, preload=True, verbose=False)
         os.unlink(tmp_file_path)
 
-        # mne>=1.4+ uses .pick() instead of pick_channels
         raw.pick([channel_name])
         sf = raw.info['sfreq']
         signal, times = raw.get_data(return_times=True)
 
-        # Step 2: Frequency Bands
+        # ----- Generate band plot -----
         bands = {
             'delta': (0.5, 4),
             'theta': (4, 8),
@@ -419,75 +441,48 @@ def process_eeg(request, channel_name):
             'gamma': (30, 45),
         }
 
-        bands_data = {}
-        for band_name, (low, high) in bands.items():
+        fig, axs = plt.subplots(len(bands), 1, figsize=(12, 8), sharex=True)
+        if len(bands) == 1:
+            axs = [axs]
+
+        for i, (band, (low, high)) in enumerate(bands.items()):
             filtered = bandpass_filter(signal, low, high, sf)
-            bands_data[band_name] = filtered.tolist()
+            axs[i].plot(times, filtered[0], label=band, linewidth=0.5)
+            axs[i].set_title(f"{band.upper()} Band")
+            axs[i].legend()
 
-        # Step 3: Generate and Upload Band Image
-        user_email = request.session.get('user')
-        plot_dropbox_path = f"/STM-Sleep/{user_email}/{channel_name}_bands.png"
+        axs[-1].set_xlabel("Time (s)")
+        fig.tight_layout()
 
-        # If image doesn't exist, generate and upload
-        try:
-            dbx.files_get_metadata(plot_dropbox_path)
-        except Exception:
-            fig, axs = plt.subplots(
-                len(bands_data), 1, figsize=(12, 8), sharex=True)
-            if len(bands_data) == 1:
-                axs = [axs]
-            for i, (band, data) in enumerate(bands_data.items()):
-                axs[i].plot(times, data[0], label=band, linewidth=0.5)
-                axs[i].set_title(f"{band.upper()} Band")
-                axs[i].legend()
-            axs[-1].set_xlabel("Time (s)")
-            fig.tight_layout()
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png")
+        plt.close(fig)
+        buf.seek(0)
 
-            buf = io.BytesIO()
-            plt.savefig(buf, format="png")
-            plt.close(fig)
-            buf.seek(0)
+        dbx.files_upload(buf.read(), plot_path, mode=dropbox.files.WriteMode.overwrite)
 
-            dbx.files_upload(buf.read(), plot_dropbox_path,
-                             mode=dropbox.files.WriteMode.overwrite)
+        # ----- Upload NPZ -----
+        npz_buf = io.BytesIO()
+        np.savez_compressed(npz_buf, signal=signal[0], times=times, sampling_rate=sf)
+        npz_buf.seek(0)
 
-        # Step 4: Get public link (safe)
-        try:
-            shared_link_metadata = dbx.sharing_create_shared_link_with_settings(
-                plot_dropbox_path)
-        except dropbox.exceptions.ApiError as e:
-            if (e.error.is_shared_link_already_exists()
-                    or "shared_link_already_exists" in str(e).lower()):
-                links = dbx.sharing_list_shared_links(
-                    path=plot_dropbox_path).links
-                if links:
-                    shared_link_metadata = links[0]
-                else:
-                    raise e
-            else:
-                raise e
-        if not shared_link_metadata:
-            print("No shared link metadata available!")
-        else:
-            print("IMAGE LINK:", shared_link_metadata.url.replace("?dl=0", "?raw=1"))
+        dbx.files_upload(npz_buf.read(), npz_path, mode=dropbox.files.WriteMode.overwrite)
 
-        band_image_link = shared_link_metadata.url
-        if "dl=0" in band_image_link:
-            band_image_link = band_image_link.replace("dl=0", "raw=1")
-        else:
-            band_image_link += "?raw=1"
-        print("IMAGE LINK:", band_image_link)
+        band_link = dbx.files_get_temporary_link(plot_path).link
+        npz_link = dbx.files_get_temporary_link(npz_path).link
+
         return JsonResponse({
             "channel": channel_name,
             "sampling_rate": sf,
-            "signal": signal[0].tolist(),
-            "times": times.tolist(),
-            "band_plot_url": band_image_link  # pass image link only, not raw band data
-        }, safe=False)
+            "band_plot_url": band_link,
+            "npz_link": npz_link,
+        })
 
     except Exception as e:
         traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
+
+
 
 
 @csrf_exempt

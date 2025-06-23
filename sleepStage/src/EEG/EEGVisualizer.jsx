@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
+import { parseNPZ } from "../utils/parseNpz"
 import EEGChannelPlot from "./EEGMainPlot";
-import '../styles/EEG.css';
+import "../styles/EEG.css";
 
 export default function EEGChart() {
   const [channel, setChannel] = useState("");
@@ -12,21 +12,34 @@ export default function EEGChart() {
   const [samplingRate, setSamplingRate] = useState(256);
   const windowSize = useMemo(() => samplingRate * 60, [samplingRate]);
   const [rangeStart, setRangeStart] = useState(0);
-  const [showModal, setShowModal] = useState(false); // for modal input
-
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     if (!selectedChannel) return;
-    console.log("Fetching EEG for:", selectedChannel);
+
     const fetchEEGData = async () => {
       try {
         const res = await axios.get(
           `http://localhost:8000/process_eeg/${selectedChannel}/`,
           { withCredentials: true }
         );
-        console.log("Fetched data:", res.data);
-        setEegData(res.data);
-        setSamplingRate(res.data.sampling_rate || 256);
+        const { npz_link, band_plot_url, sampling_rate, channel } = res.data;
+
+        const npzRes = await fetch(npz_link);
+        const npzBuffer = await npzRes.arrayBuffer();
+        const parsed = await parseNPZ(npzBuffer);
+
+        setEegData({
+          channel,
+          band_plot_url,
+          signal: parsed.signal,
+          times: parsed.times,
+          sampling_rate: parsed.sampling_rate,
+        });
+
+        console.log(eegData);
+
+        setSamplingRate(parsed.sampling_rate || 256);
         setRangeStart(0);
       } catch (err) {
         console.error("Error fetching EEG data:", err);
@@ -35,20 +48,6 @@ export default function EEGChart() {
 
     fetchEEGData();
   }, [selectedChannel]);
-
-  useEffect(() => {
-    if (eegData?.band_plot_url) {
-      console.log("IMAGE LINK:", eegData.band_plot_url);
-    }
-  }, [eegData]);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (channel.trim() !== "" && !channelList.includes(channel)) {
-      setChannelList([channel, ...channelList]);
-      setChannel("");
-    }
-  };
 
   const handleSliderChange = (e) => {
     setRangeStart(Number(e.target.value) * windowSize);
@@ -73,8 +72,6 @@ export default function EEGChart() {
 
   return (
     <div className="eeg-container">
-
-
       {/* Channel Navbar */}
       <div className="channel-navbar">
         <div className="channel-list">
@@ -101,54 +98,49 @@ export default function EEGChart() {
             data={{ [eegData.channel]: visibleSignal }}
             times={visibleTimes}
           />
-  
-          
+
           <div className="slider-container">
-          <input
-            type="range"
-            min="0"
-            max={totalMinutes - 1}
-            value={Math.floor(rangeStart / windowSize)}
-            onChange={handleSliderChange}
-            className="eeg-slider"
-          />
-          <div className="slider-footer">
-            <span>
-              Minute: {Math.floor(rangeStart / windowSize) + 1} / {totalMinutes}
-            </span>
-            <div className="freq-control">
-              <label htmlFor="freq">Sampling Rate:</label>
-              <input
-                id="freq"
-                type="number"
-                value={samplingRate}
-                onChange={(e) => {
-                  let val = Number(e.target.value);
-                  if (val > 256) val = 256;
-                  if (val < 1) val = 1;
-                  setSamplingRate(val);
-                }}
-                min="1"
-                max="256"
-                step="1"
-              />
+            <input
+              type="range"
+              min="0"
+              max={totalMinutes - 1}
+              value={Math.floor(rangeStart / windowSize)}
+              onChange={handleSliderChange}
+              className="eeg-slider"
+            />
+            <div className="slider-footer">
+              <span>
+                Minute: {Math.floor(rangeStart / windowSize) + 1} / {totalMinutes}
+              </span>
+              <div className="freq-control">
+                <label htmlFor="freq">Sampling Rate:</label>
+                <input
+                  id="freq"
+                  type="number"
+                  value={samplingRate}
+                  onChange={(e) => {
+                    let val = Number(e.target.value);
+                    if (val > 256) val = 256;
+                    if (val < 1) val = 1;
+                    setSamplingRate(val);
+                  }}
+                  min="1"
+                  max="256"
+                  step="1"
+                />
+              </div>
             </div>
           </div>
         </div>
-
-
-        </div>
       )}
-  
+
       {eegData?.band_plot_url && (
         <div className="band-image-container">
           <h3>Frequency Band Visualization</h3>
           <img src={eegData.band_plot_url} alt="Band" className="band-image" />
         </div>
       )}
-  
-      
-  
+
       {/* Modal for adding a channel */}
       {showModal && (
         <div className="modal-backdrop" onClick={() => setShowModal(false)}>

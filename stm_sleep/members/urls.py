@@ -15,6 +15,6 @@ urlpatterns = [
 
     # dropbox token
     path('', views.dropbox_oauth_callback, name='dropbox_callback'),
-    path('', views.unauthorized_root),  # root path
+    # path('', views.unauthorized_root),  # root path
 
 ]
