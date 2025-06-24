@@ -170,3 +170,20 @@
     background-color: #1a252f;
   }
   
+
+  .eeg-placeholder {
+    margin: 2rem auto;
+    padding: 2rem;
+    max-width: 800px;
+    text-align: center;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+  }
+  
+  .eeg-placeholder ul {
+    text-align: left;
+    display: inline-block;
+    margin-top: 1rem;
+  }
+  
