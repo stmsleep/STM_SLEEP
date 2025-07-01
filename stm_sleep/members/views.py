@@ -539,3 +539,506 @@ def dropbox_oauth_callback(request):
         return HttpResponse("Dropbox tokens saved successfully.")
     else:
         return HttpResponse(f"Error: {response.text}", status=500)
+
+
+
+
+
+
+
+
+
+
+
+import os
+import json
+import shlex
+import tempfile
+import subprocess
+import traceback
+
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
+
+import os
+import json
+import shlex
+import tempfile
+import subprocess
+import traceback
+
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
+
+
+# @csrf_exempt
+# @require_POST
+# def jarvis(request):
+#     try:
+#         active_folder = request.session.get('files')
+#         if not active_folder or 'eeg_edf' not in active_folder:
+#             return JsonResponse({"error": "No EDF path found in session"}, status=400)
+
+#         data = json.loads(request.body)
+#         channel_name = data.get("channel_name")
+#         print(channel_name)
+#         sf = int(data.get("sfreq", 100))
+#         ssh_cmd = data.get("ssh_cmd")
+
+#         if not all([channel_name, sf, ssh_cmd]):
+#             return JsonResponse({"error": "Missing required fields"}, status=400)
+
+#         # Step 1: Download EDF from Dropbox
+#         dropbox_path = active_folder['eeg_edf']
+#         edf_filename = os.path.basename(dropbox_path)  # e.g., 'Recording_xyz.edf'
+#         dbx = get_dropbox_client()
+
+#         try:
+#             _, res = dbx.files_download(dropbox_path)
+#         except Exception as e:
+#             return JsonResponse({"error": f"Failed to download EDF from Dropbox: {e}"}, status=404)
+
+#         with tempfile.NamedTemporaryFile(delete=False, suffix=".edf") as tmp_file:
+#             tmp_file.write(res.content)
+#             local_edf_path = tmp_file.name
+
+#         # Step 2: SCP to Jarvis
+#         # Make sure both local path and remote target are properly quoted
+#        # 2. SCP to Jarvis server
+#         remote_filename = edf_filename.replace(" ", "_")  # optional sanitization'''
+        
+#         remote_path = f"/home/Model_Jarvis/Datasets/EDF Files"
+#         '''{remote_filename}'''
+#         scp_cmd = [
+#             "scp",
+#             "-P", "11514",
+#             local_edf_path,
+#             f"root@sshb.jarvislabs.ai:{remote_path}"
+#         ]
+
+#         # subprocess.run(scp_cmd, check=True)
+
+#         # Step 3: SSH into Jarvis and run prediction
+#         install_cmd = (
+#             "cd /home/Model_Jarvis/Codes && "
+#             "pip install mne timm pywavelets torchsummary"
+#         )
+#         quoted_channel = shlex.quote(channel_name)
+#         quoted_filename = shlex.quote("SC4122E0-PSG.edf")
+#         run_cmd = (
+#             f"cd /home/Model_Jarvis/Codes && "
+#             f"python init.py run sf={sf} channel_name={quoted_channel} testing_subjects={quoted_filename}"
+#         )
+
+#         # Combine both commands using '&&' so install runs first
+#         remote_cmd = f"{install_cmd} && {run_cmd}"
+
+#         # Full SSH command
+#         ssh_full_cmd = f'{ssh_cmd} "{remote_cmd}"'
+        
+#         #"shlex.quote(edf_filename)"""
+#         # remote_cmd = (
+#         #     f"cd ../ && cd home/Model_Jarvis/Codes && "
+#         #     f"python init.py run sf={sf} channel_name={quoted_channel} testing_subjects={quoted_filename}"
+#         # )
+#         ssh_full_cmd = f'{ssh_cmd} "{remote_cmd}"'
+
+#         process = subprocess.Popen(
+#             ssh_full_cmd,
+#             shell=True,
+#             stdout=subprocess.PIPE,
+#             stderr=subprocess.STDOUT,
+#             text=True,
+#             encoding="utf-8",
+#             errors="ignore"
+#         )
+
+#         prediction = None
+#         prediction = None
+#         while True:
+#             line = process.stdout.readline()
+#             if not line:
+#                 break
+#             print(f"🔍 Received line: {line.strip()}")  # Add this
+
+#             if line.strip().startswith("[") and line.strip().endswith("]"):
+#                 try:
+#                     prediction = eval(line.strip())
+#                 except Exception as e:
+#                     print(f"⚠️ Eval failed: {e}")
+#                     continue
+
+
+#         process.wait()
+
+#         if prediction is None:
+#             return JsonResponse({"error": "Prediction not found in output"}, status=500)
+
+#         return JsonResponse({"prediction": prediction})
+
+#     except Exception as e:
+#         traceback.print_exc()
+#         return JsonResponse({"error": str(e)}, status=500)
+
+
+"""
+@csrf_exempt
+@require_POST
+def jarvis(request):
+    try:
+        import traceback
+        import shlex
+        import subprocess
+        import json
+        from django.http import JsonResponse
+
+        # Ensure session has EEG file path
+        active_folder = request.session.get('files')
+        if not active_folder or 'eeg_edf' not in active_folder:
+            return JsonResponse({"error": "No EDF path found in session"}, status=400)
+
+        data = json.loads(request.body)
+        ssh_cmd = data.get("ssh_cmd")
+        sf = int(data.get("sfreq", 100))
+        channel_name = data.get("channel_name", "EEG Fpz-Cz")
+        selected_subjects = data.get("selected_subjects", ["SC4122E0"])
+        testing_subjects = data.get("testing_subjects", ["SC4122E0-PSG"])
+
+        if not ssh_cmd:
+            return JsonResponse({"error": "Missing SSH command"}, status=400)
+
+        # Prepare commands
+        install_cmd = (
+            "cd /home/Model_Jarvis/Codes && "
+            "pip install mne timm pywavelets torchsummary"
+        )
+
+        quoted_channel = shlex.quote(channel_name)
+        quoted_subjects = shlex.quote(", ".join(selected_subjects))
+        quoted_testing = shlex.quote(testing_subjects[0])
+
+        cwt_cmd = (
+            f"cd /home/Model_Jarvis/Codes && "
+            f"python init.py cwt sf={sf} channel_name={quoted_channel} selected_subjects={quoted_subjects}"
+        )
+
+        run_cmd = (
+            f"cd /home/Model_Jarvis/Codes && "
+            f"python init.py run sf={sf} channel_name={quoted_channel} testing_subjects={quoted_testing}"
+        )
+
+        remote_cmd = f"{install_cmd} && {cwt_cmd} && {run_cmd}"
+        ssh_full_cmd = f'{ssh_cmd} "{remote_cmd}"'
+
+        # Run SSH Process
+        process = subprocess.Popen(
+            ssh_full_cmd,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="ignore"
+        )
+
+        prediction = None
+        while True:
+            line = process.stdout.readline()
+            if not line:
+                break
+            print(f"🔍 {line.strip()}")
+
+            # Try to parse prediction line
+            if line.strip().startswith("[") and line.strip().endswith("]"):
+                try:
+                    prediction = eval(line.strip())
+                except Exception as e:
+                    print(f"⚠️ Eval failed: {e}")
+                    continue
+
+        process.wait()
+
+        if prediction is None:
+            return JsonResponse({"error": "Prediction not found in output"}, status=500)
+
+        return JsonResponse({"prediction": prediction})
+
+    except Exception as e:
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+"""
+
+
+# @csrf_exempt
+# @require_POST
+# def jarvis(request):
+#     try:
+#         import os
+#         import json
+#         import shlex
+#         import subprocess
+#         import tempfile
+#         import traceback
+#         from django.http import JsonResponse
+
+#         # ✅ 1. Get session + params
+#         active_folder = request.session.get('files')
+#         if not active_folder or 'eeg_edf' not in active_folder:
+#             return JsonResponse({"error": "No EDF path found in session"}, status=400)
+
+#         data = json.loads(request.body)
+#         ssh_cmd = data.get("ssh_cmd")
+#         sf = int(data.get("sfreq", 100))
+#         channel_name = data.get("channel_name", "EEG Fpz-Cz")
+
+#         if not ssh_cmd:
+#             return JsonResponse({"error": "Missing SSH command"}, status=400)
+
+#         print("STEP 1 ✅ Got request:", ssh_cmd, sf, channel_name)
+
+#         # ✅ 2. Download EDF file from Dropbox
+#         dropbox_path = active_folder['eeg_edf']
+#         edf_filename = os.path.basename(dropbox_path).replace(" ", "_")
+#         dbx = get_dropbox_client()
+#         try:
+#             _, res = dbx.files_download(dropbox_path)
+#             print(f"STEP 2 ✅ Downloaded EDF from Dropbox: {dropbox_path}")
+#         except Exception as e:
+#             return JsonResponse({"error": f"Failed to download from Dropbox: {e}"}, status=500)
+
+#         with tempfile.NamedTemporaryFile(delete=False, suffix=".edf") as tmp_file:
+#             tmp_file.write(res.content)
+#             local_edf_path = tmp_file.name
+#             print(f"STEP 2 ✅ Saved local EDF: {local_edf_path}")
+
+#         # ✅ 3. Upload EDF to remote Jarvis  
+#         remote_dir = "/home/Model_Jarvis/Datasets/EDF Files"
+#         remote_file_path = f"{remote_dir}/{edf_filename}"
+
+#         mkdir_cmd = f'{ssh_cmd} "mkdir -p \\"{remote_dir}\\""'
+#         subprocess.run(mkdir_cmd, shell=True, check=True)
+#         print("STEP 3 ✅ Created remote dir if needed")
+
+#         scp_cmd = [
+#             "scp",
+#             "-P", "11014",
+#             local_edf_path,
+#             f'root@sshc.jarvislabs.ai:{remote_file_path}'
+#         ]
+#         subprocess.run(scp_cmd, check=True)
+#         print("STEP 3 ✅ Uploaded EDF to Jarvis:", remote_file_path)
+
+#         # ✅ 4. Build SSH prediction commands
+#         install_cmd = (
+#             "cd /home/Model_Jarvis/Codes && "
+#             "pip install mne timm pywavelets torchsummary"
+#         )
+#         quoted_channel = shlex.quote(channel_name)
+#         base_subject = edf_filename.replace('.edf', '')
+#         quoted_subject = shlex.quote(base_subject)
+
+#         cwt_cmd = (
+#             f"cd /home/Model_Jarvis/Codes && "
+#             f"python init.py cwt sf={sf} channel_name={quoted_channel} selected_subjects={quoted_subject}"
+#         )
+#         run_cmd = (
+#             f"cd /home/Model_Jarvis/Codes && "
+#             f"python init.py run sf={sf} channel_name={quoted_channel} testing_subjects={quoted_subject}"
+#         )
+
+#         remote_cmd = f"{install_cmd} && {cwt_cmd} && {run_cmd}"
+#         ssh_full_cmd = f'ssh -o StrictHostKeyChecking=no -p 11014 root@sshc.jarvislabs.ai "{remote_cmd}"'
+#         print("STEP 4 ✅ Built SSH command")
+
+#         # ✅ 5. Execute SSH and capture live logs
+#         process = subprocess.Popen(
+#             ssh_full_cmd,
+#             shell=True,
+#             stdout=subprocess.PIPE,
+#             stderr=subprocess.STDOUT,
+#             text=True,
+#             encoding="utf-8",
+#             errors="ignore"
+#         )
+
+#         prediction = None
+#         while True:
+#             line = process.stdout.readline()
+#             if not line:
+#                 break
+#             print(f"🔍 {line.strip()}")
+#             if line.strip().startswith("[") and line.strip().endswith("]"):
+#                 try:
+#                     prediction = eval(line.strip())
+#                 except Exception as e:
+#                     print(f"⚠️ Eval failed: {e}")
+
+#         process.wait()
+
+#         # ✅ 6. Clean up local temp file
+#         try:
+#             os.remove(local_edf_path)
+#         except Exception:
+#             pass
+
+#         if prediction is None:
+#             return JsonResponse({"error": "Prediction not found in output"}, status=500)
+
+#         print("STEP 5 ✅ Prediction complete")
+#         return JsonResponse({"prediction": prediction})
+
+#     except Exception as e:
+#         traceback.print_exc()
+#         return JsonResponse({"error": str(e)}, status=500)
+
+
+
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+from django.http import JsonResponse
+import json
+import os
+import shlex
+import subprocess
+import tempfile
+import traceback
+
+@csrf_exempt
+@require_POST
+def jarvis(request):
+    try:
+        active_folder = request.session.get('files')
+        if not active_folder or 'eeg_edf' not in active_folder:
+            return JsonResponse({"error": "No EDF path found in session"}, status=400)
+
+        data = json.loads(request.body)
+        ssh_cmd_base = data.get("ssh_cmd")
+        sf = int(data.get("sfreq", 100))
+        channel_name = data.get("channel_name", "EEG Fpz-Cz")
+
+        if not ssh_cmd_base:
+            return JsonResponse({"error": "Missing SSH command"}, status=400)
+
+        ssh_cmd = f"{ssh_cmd_base} -tt -o ConnectTimeout=15"
+        print("\n🔵 STEP 1 ✅ Input received")
+        print(f"SSH CMD: {ssh_cmd}")
+        print(f"SFREQ: {sf}")
+        print(f"CHANNEL_NAME: {channel_name}")
+
+        # 📥 Download EDF from Dropbox
+        dropbox_path = active_folder['eeg_edf']
+        edf_filename = os.path.basename(dropbox_path).replace(" ", "_")
+        subject_name = edf_filename.replace(".edf", "")
+        remote_edf_path = f"/home/Model_Jarvis/Datasets/EDF Files/{subject_name}.edf"
+
+        print(f"\n🔵 STEP 2 ✅ Downloading EDF from Dropbox: {dropbox_path}")
+        dbx = get_dropbox_client()
+        try:
+            _, res = dbx.files_download(dropbox_path)
+        except Exception as e:
+            return JsonResponse({"error": f"Failed to download from Dropbox: {e}"}, status=500)
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".edf") as tmp_file:
+            tmp_file.write(res.content)
+            local_edf_path = tmp_file.name
+            print(f"Local EDF saved at: {local_edf_path}")
+
+        # 📤 Check & Upload EDF
+        print(f"\n🔵 STEP 3 ✅ Checking if file exists on remote: {remote_edf_path}")
+        check_file_cmd = (
+            f'{ssh_cmd} "bash -c \'if test -f \\"{remote_edf_path}\\"; then echo exists; else echo missing; fi\'"'
+        )
+        result = subprocess.check_output(check_file_cmd, shell=True, text=True).strip()
+        print(f"Remote file check output: '{result}'")
+
+        if "missing" in result:
+            print("Remote EDF missing, uploading...")
+            mkdir_cmd = f'{ssh_cmd} "mkdir -p \\"/home/Model_Jarvis/Datasets/EDF Files\\""'
+            subprocess.run(mkdir_cmd, shell=True, check=True)
+
+            scp_cmd = [
+                "scp", "-P", "11014",
+                local_edf_path,
+                f'root@ssha.jarvislabs.ai:{remote_edf_path}'
+            ]
+            print(f"Running SCP: {' '.join(scp_cmd)}")
+            subprocess.run(scp_cmd, check=True)
+            print("✅ SCP upload complete.")
+        else:
+            print("✅ Remote EDF already exists, skipping upload.")
+
+        # 📝 Check if CWT is already extracted
+        remote_cwt_images = f"/home/Model_Jarvis/Datasets/CWT Plots/{subject_name}/cwt_images"
+        print(f"\n🔵 STEP 4 ✅ Checking CWT images dir: {remote_cwt_images}")
+        check_cwt_cmd = (
+            f'{ssh_cmd} "bash -c \'if test -d \\"{remote_cwt_images}\\"; then echo exists; else echo missing; fi\'"'
+        )
+        cwt_result = subprocess.check_output(check_cwt_cmd, shell=True, text=True).strip()
+        print(f"CWT check output: '{cwt_result}'")
+
+        if "missing" in cwt_result:
+            print("CWT images missing, running extraction...")
+            install_cmd = (
+                "cd /home/Model_Jarvis/Codes && "
+                "pip install mne timm pywavelets torchsummary"
+            )
+            cwt_cmd = (
+                f"cd /home/Model_Jarvis/Codes && "
+                f"python init.py cwt sf={sf} channel_name={shlex.quote(channel_name)} selected_subjects={shlex.quote(subject_name)}"
+            )
+            remote_cmd = f"{install_cmd} && {cwt_cmd}"
+            print(f"Run: {remote_cmd}")
+            subprocess.run(f'{ssh_cmd} "{remote_cmd}"', shell=True, check=True)
+            print("✅ CWT extraction done.")
+        else:
+            print("✅ CWT already exists, skipping extraction.")
+
+        # 🔮 Run prediction (testing_subjects is just subject_name)
+        print(f"\n🔵 STEP 5 ✅ Running prediction for: {subject_name}")
+        run_cmd = (
+            f"cd /home/Model_Jarvis/Codes && "
+            f"python init.py run sf={sf} channel_name={shlex.quote(channel_name)} testing_subjects={shlex.quote(subject_name)}"
+        )
+        ssh_full_cmd = f'{ssh_cmd} "{run_cmd}"'
+        print(f"Run: {ssh_full_cmd}")
+
+        process = subprocess.Popen(
+            ssh_full_cmd,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True
+        )
+
+        prediction = None
+        while True:
+            line = process.stdout.readline()
+            if not line:
+                break
+            print(f"🔍 {line.strip()}")
+            if line.strip().startswith("[") and line.strip().endswith("]"):
+                try:
+                    prediction = eval(line.strip())
+                    print(f"🎯 Prediction found: {prediction}")
+                except Exception as e:
+                    print(f"⚠️ Eval failed: {e}")
+
+        process.wait()
+
+        # 🧹 Cleanup
+        os.remove(local_edf_path)
+        print("✅ Local EDF cleaned up.")
+
+        if prediction is None:
+            return JsonResponse({"error": "Prediction not found in output"}, status=500)
+
+        return JsonResponse({"prediction": prediction})
+
+    except Exception as e:
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
