@@ -36,6 +36,21 @@ export default function EEGChannelPlot({ channelName, data, times }) {
       nameGap: 35,
       scale: true,
     },
+    dataZoom: [
+      {
+        type: 'inside',
+        zoomOnMouseWheel: true,
+        moveOnMouseWheel: true,
+        moveOnMouseMove: true,
+        throttle: 50,
+      }
+    ],
+    toolbox: {
+      feature: {
+        dataZoom: { yAxisIndex: 'none' },
+        restore: {},
+      },
+    },
     series: [
       {
         name: channelName,

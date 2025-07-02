@@ -539,3 +539,205 @@ def dropbox_oauth_callback(request):
         return HttpResponse("Dropbox tokens saved successfully.")
     else:
         return HttpResponse(f"Error: {response.text}", status=500)
+
+
+
+
+
+
+
+
+
+
+
+import os
+import json
+import shlex
+import tempfile
+import subprocess
+import traceback
+
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
+
+import os
+import json
+import shlex
+import tempfile
+import subprocess
+import traceback
+
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
+
+
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+from django.http import JsonResponse
+import json
+import os
+import shlex
+import subprocess
+import tempfile
+import traceback
+import io
+from dropbox.files import WriteMode
+
+@csrf_exempt
+@require_POST
+def jarvis(request):
+    try:
+        active_folder = request.session.get('files')
+        if not active_folder or 'eeg_edf' not in active_folder:
+            return JsonResponse({"error": "No EDF path found in session"}, status=400)
+
+        data = json.loads(request.body)
+        ssh_cmd_base = data.get("ssh_cmd")
+        sf = int(data.get("sfreq", 100))
+        channel_name = data.get("channel_name", "EEG Fpz-Cz")
+
+        if not ssh_cmd_base:
+            return JsonResponse({"error": "Missing SSH command"}, status=400)
+
+        ssh_cmd = f"{ssh_cmd_base} -tt -o ConnectTimeout=15"
+        print("\n🔵 STEP 1 ✅ Input received")
+        print(f"SSH CMD: {ssh_cmd}")
+        print(f"SFREQ: {sf}")
+        print(f"CHANNEL_NAME: {channel_name}")
+
+        # 📥 Download EDF from Dropbox
+        dropbox_path = active_folder['eeg_edf']
+        edf_filename = os.path.basename(dropbox_path).replace(" ", "_")
+        subject_name = edf_filename.replace(".edf", "")
+        remote_edf_path = f"/home/Model_Jarvis/Datasets/EDF Files/{subject_name}.edf"
+
+        # 🔍 STEP 2.5 ✅ Check for existing prediction in Dropbox
+        user_email = request.session.get('user')
+        folder_name = request.session.get('folder_name')
+        prediction_dropbox_path = f"/STM-Sleep/{user_email}/{folder_name}/{channel_name}/{sf}_bands.json"
+
+        dbx = get_dropbox_client()
+        try:
+            md = dbx.files_get_metadata(prediction_dropbox_path)
+            print(f"✅ Prediction already exists on Dropbox at {prediction_dropbox_path}, downloading...")
+            _, res = dbx.files_download(prediction_dropbox_path)
+            prediction = json.loads(res.content)
+            return JsonResponse({"prediction": prediction})
+        except Exception:
+            print("📦 No cached prediction found, will compute...")
+
+        # ✅ Download EDF from Dropbox
+        print(f"\n🔵 STEP 3 ✅ Downloading EDF from Dropbox: {dropbox_path}")
+        try:
+            _, res = dbx.files_download(dropbox_path)
+        except Exception as e:
+            return JsonResponse({"error": f"Failed to download from Dropbox: {e}"}, status=500)
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".edf") as tmp_file:
+            tmp_file.write(res.content)
+            local_edf_path = tmp_file.name
+            print(f"Local EDF saved at: {local_edf_path}")
+
+        # 📤 Check & Upload EDF
+        print(f"\n🔵 STEP 4 ✅ Checking if file exists on remote: {remote_edf_path}")
+        check_file_cmd = (
+            f'{ssh_cmd} "bash -c \'if test -f \\"{remote_edf_path}\\"; then echo exists; else echo missing; fi\'"'
+        )
+        result = subprocess.check_output(check_file_cmd, shell=True, text=True).strip()
+        print(f"Remote file check output: '{result}'")
+
+        if "missing" in result:
+            print("Remote EDF missing, uploading...")
+            mkdir_cmd = f'{ssh_cmd} "mkdir -p \\"/home/Model_Jarvis/Datasets/EDF Files\\""'
+            subprocess.run(mkdir_cmd, shell=True, check=True)
+
+            scp_cmd = [
+                "scp", "-P", "11214",
+                local_edf_path,
+                f'root@ssha.jarvislabs.ai:{remote_edf_path}'
+            ]
+            print(f"Running SCP: {' '.join(scp_cmd)}")
+            subprocess.run(scp_cmd, check=True)
+            print("✅ SCP upload complete.")
+        else:
+            print("✅ Remote EDF already exists, skipping upload.")
+
+        # 📝 Check if CWT is already extracted
+        remote_cwt_images = f"/home/Model_Jarvis/Datasets/CWT Plots/{subject_name}/cwt_images"
+        print(f"\n🔵 STEP 5 ✅ Checking CWT images dir: {remote_cwt_images}")
+        check_cwt_cmd = (
+            f'{ssh_cmd} "bash -c \'if test -d \\"{remote_cwt_images}\\"; then echo exists; else echo missing; fi\'"'
+        )
+        cwt_result = subprocess.check_output(check_cwt_cmd, shell=True, text=True).strip()
+        print(f"CWT check output: '{cwt_result}'")
+
+        if "missing" in cwt_result:
+            print("CWT images missing, running extraction...")
+            install_cmd = (
+                "cd /home/Model_Jarvis/Codes && "
+                "pip install mne timm pywavelets torchsummary"
+            )
+            cwt_cmd = (
+                f"cd /home/Model_Jarvis/Codes && "
+                f"python init.py cwt sf={sf} channel_name={shlex.quote(channel_name)} selected_subjects={shlex.quote(subject_name)}"
+            )
+            remote_cmd = f"{install_cmd} && {cwt_cmd}"
+            print(f"Run: {remote_cmd}")
+            subprocess.run(f'{ssh_cmd} "{remote_cmd}"', shell=True, check=True)
+            print("✅ CWT extraction done.")
+        else:
+            print("✅ CWT already exists, skipping extraction.")
+
+        # 🔮 Run prediction
+        print(f"\n🔵 STEP 6 ✅ Running prediction for: {subject_name}")
+        run_cmd = (
+            f"cd /home/Model_Jarvis/Codes && "
+            f"python init.py run sf={sf} channel_name={shlex.quote(channel_name)} testing_subjects={shlex.quote(subject_name)}"
+        )
+        ssh_full_cmd = f'{ssh_cmd} "{run_cmd}"'
+        print(f"Run: {ssh_full_cmd}")
+
+        process = subprocess.Popen(
+            ssh_full_cmd,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True
+        )
+
+        prediction = None
+        while True:
+            line = process.stdout.readline()
+            if not line:
+                break
+            print(f"🔍 {line.strip()}")
+            if line.strip().startswith("[") and line.strip().endswith("]"):
+                try:
+                    prediction = eval(line.strip())
+                    print(f"🎯 Prediction found: {prediction}")
+                except Exception as e:
+                    print(f"⚠️ Eval failed: {e}")
+
+        process.wait()
+
+        # 🧹 Cleanup
+        os.remove(local_edf_path)
+        print("✅ Local EDF cleaned up.")
+
+        if prediction is None:
+            return JsonResponse({"error": "Prediction not found in output"}, status=500)
+
+        # 📝 Save prediction to Dropbox for caching
+        pred_bytes = io.BytesIO(json.dumps(prediction).encode())
+        dbx.files_upload(pred_bytes.read(), prediction_dropbox_path, mode=WriteMode("overwrite"))
+        print(f"✅ Saved prediction to Dropbox at {prediction_dropbox_path}")
+
+        return JsonResponse({"prediction": prediction})
+
+    except Exception as e:
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)

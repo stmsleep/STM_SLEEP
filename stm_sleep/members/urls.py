@@ -13,6 +13,7 @@ urlpatterns = [
     path('process_ecg/', views.process_ecg, name='process_eog'),
     path('process_eeg/<str:channel_name>/', views.process_eeg),
 
+    path('jarvis/', views.jarvis, name='process_eog'),
     # dropbox token
     path('', views.dropbox_oauth_callback, name='dropbox_callback'),
     # path('', views.unauthorized_root),  # root path
