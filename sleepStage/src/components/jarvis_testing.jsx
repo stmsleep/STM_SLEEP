@@ -5,7 +5,7 @@ import ReactECharts from "echarts-for-react";
 export default function JarvisTesting() {
   const [channelName, setChannelName] = useState("EEG Fpz-Cz");
   const [sfreq, setSfreq] = useState(100);
-  const [sshCmd, setSshCmd] = useState("ssh -o StrictHostKeyChecking=no -p 11014 root@ssha.jarvislabs.ai");
+  const [sshCmd, setSshCmd] = useState("ssh -o StrictHostKeyChecking=no -p 11214 root@ssha.jarvislabs.ai");
   const [prediction, setPrediction] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -93,13 +93,6 @@ export default function JarvisTesting() {
         onChange={(e) => setSfreq(parseInt(e.target.value))}
       />
 
-      <label>SSH Command:</label>
-      <input
-        type="text"
-        value={sshCmd}
-        onChange={(e) => setSshCmd(e.target.value)}
-      />
-
       <button onClick={handlePredict} disabled={loading} style={{ marginTop: "1rem" }}>
         {loading ? "Predicting..." : "▶️ Run Prediction"}
       </button>
@@ -110,9 +103,7 @@ export default function JarvisTesting() {
         <div style={{ marginTop: "2rem" }}>
           <h3>🧾 Predicted Sleep Stages:</h3>
           <ReactECharts option={getChartOptions()} style={{ height: "400px" }} />
-          <pre style={{ maxHeight: "200px", overflowY: "auto", background: "#eee", padding: "1rem" }}>
-            {JSON.stringify(prediction, null, 2)}
-          </pre>
+
         </div>
       )}
     </div>
