@@ -4,7 +4,7 @@ import Login from "./components/Login";
 import DashBoard from "./components/DashBoard";
 import LandingPage from "./components/LandingPage";
 
-import JarvisTesting from "./components/jarvis_testing";
+import SleepDashboard from "./components/jarvis_testing";
 
 import {
   Routes,
@@ -128,7 +128,7 @@ function App() {
         <Route path="eog" element={<EOGUploader />} />
         <Route path="eeg" element={<EEGVisualizer />} />
         <Route path="ecg" element={<ECG />} />
-        <Route path="test" element={<JarvisTesting />} />
+        <Route path="test" element={<SleepDashboard />} />
       </Route>
     </Routes>
   );
