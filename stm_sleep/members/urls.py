@@ -12,6 +12,10 @@ urlpatterns = [
     path('get_summary_pdf/', views.load_summary_pdf, name="get_summary_pdf"),
     path('process_ecg/', views.process_ecg, name='process_eog'),
     path('process_eeg/<str:channel_name>/', views.process_eeg),
+    path('fetch_files/',views.fetch_file_name),
+    path("delete_file/",views.delete_file),
+
+    path("upload_file/",views.upload_file),
 
     path('jarvis/', views.jarvis, name='process_eog'),
     # dropbox token
