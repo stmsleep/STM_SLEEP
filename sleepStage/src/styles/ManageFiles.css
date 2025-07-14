@@ -1,0 +1,120 @@
+.file-list-container {
+  /* max-width: 900px;    larger container width */
+  margin: 3rem auto;
+  padding: 2rem;
+  /* background-color: #fdfdfd; */
+  /* box-shadow: 0 6px 24px rgba(0, 0, 0, 0.1); */
+  font-family: 'Segoe UI', sans-serif;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.file-list-title {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch; /* 🔥 ensures items stretch full width */
+  gap: 1rem;
+  width: 100%;
+}
+
+.file-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;          /* 🔥 make sure it fills container */
+  padding: 0.75rem 1rem;
+  border: 1px solid #ddd;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  transition: all 0.2s ease-in-out;
+}
+
+.file-list-item:hover {
+  background-color: #eef3fa;
+  border-color: #aacdf1;
+}
+
+.file-name {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #222;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.delete-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #cc3a3a;
+  font-size: 1.1rem;
+  transition: transform 0.2s;
+}
+
+.delete-btn:hover {
+  transform: scale(1.15);
+}
+
+.upload-section {
+
+  margin-top: 1.5rem;
+}
+
+input[type="file"] {
+  padding: 0.5rem;
+  font-size: 1rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  cursor: pointer;
+}
+
+input[type="file"]::file-selector-button {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+input[type="file"]::file-selector-button:hover {
+  background-color: #0056b3;
+}
+
+.upload-btn {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 0.65rem 1.2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.upload-btn:disabled {
+  background-color: #98d7a5;
+  cursor: not-allowed;
+}
+
+.upload-btn:hover:not(:disabled) {
+  background-color: #1f8838;
+}
+
+.no-files {
+  text-align: center;
+  color: #888;
+  font-style: italic;
+}

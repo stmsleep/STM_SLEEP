@@ -6,6 +6,8 @@ import LandingPage from "./components/LandingPage";
 
 import SleepDashboard from "./components/jarvis_testing";
 
+import ManageFiles from "./components/Manage_files";
+
 import {
   Routes,
   Route,
@@ -75,7 +77,7 @@ function Layout() {
             </button>
             <button 
               onClick={()=> handleNav("/eeg")}
-              className={`nav-button ${isActive("/ecg") ? "active" : ""}`}
+              className={`nav-button ${isActive("/eeg") ? "active" : ""}`}
             >
               EEG
             </button>
@@ -90,6 +92,12 @@ function Layout() {
               className={`nav-button ${isActive("/test") ? "active" : ""}`}
             >
               test
+            </button>
+            <button
+              onClick={() => handleNav("/files")}
+              className={`nav-button ${isActive("/files") ? "active" : ""}`}
+            >
+              Manage Files
             </button>
           </nav>
         </aside>
@@ -129,6 +137,7 @@ function App() {
         <Route path="eeg" element={<EEGVisualizer />} />
         <Route path="ecg" element={<ECG />} />
         <Route path="test" element={<SleepDashboard />} />
+        <Route path="files" element={<ManageFiles />} />
       </Route>
     </Routes>
   );

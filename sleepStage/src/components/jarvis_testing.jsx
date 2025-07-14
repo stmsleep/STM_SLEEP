@@ -115,7 +115,7 @@ export default function SleepDashboard() {
     <div style={{
       fontFamily: "Arial, sans-serif",
       padding: "2rem",
-      maxWidth: "1200px",
+      maxWidth: "100%",
       margin: "0 auto"
     }}>
       <h2 style={{textAlign: "center", marginBottom: "2rem"}}>🧠 Sleep Analysis Dashboard</h2>
@@ -179,7 +179,7 @@ export default function SleepDashboard() {
       </div>
 
       {prediction && (
-        <div style={{ marginTop: "2rem" }}>
+        <div style={{ marginTop: "2rem",width:"100%"  }}>
           <ReactECharts option={getChartOptions()} style={{ height: "400px" }} />
         </div>
       )}
