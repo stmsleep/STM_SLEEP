@@ -1,0 +1,93 @@
+.channel-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #ffffff;
+  padding: 20px;
+  font-family: sans-serif;
+}
+
+.channel-box {
+  background-color: #e6f0ff;
+  border: 1px solid #99c2ff;
+  border-radius: 16px;
+  padding: 30px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.channel-title {
+  font-size: 24px;
+  color: #0047ab;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.channel-select,
+.other-input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  border: 1px solid #99c2ff;
+}
+
+.chip-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.chip {
+  position: relative;
+  background-color: #cce0ff;
+  color: #003366;
+  padding: 8px 24px 8px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+}
+
+.chip-close {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: bold;
+  color: #003366;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.chip-close:hover {
+  color: red;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  color: #0047ab;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 12px;
+  background-color: #0066cc;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.submit-btn:hover {
+  background-color: #005bb5;
+}

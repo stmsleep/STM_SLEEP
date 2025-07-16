@@ -3,9 +3,9 @@ import EOGUploader from "./EOG/EOGUploader";
 import Login from "./components/Login";
 import DashBoard from "./components/DashBoard";
 import LandingPage from "./components/LandingPage";
-
+import DashPage from "./components/DashPage";
 import SleepDashboard from "./components/jarvis_testing";
-
+import EEGChart from "./EEG/EEGVisualizer";
 import ManageFiles from "./components/Manage_files";
 
 import {
@@ -20,18 +20,21 @@ import {
 import Summary from "./summary/Summary";
 import UserList from "./components/UserList";
 import ECG from "./ECG/Ecg";
-import EEGVisualizer from "./EEG/EEGVisualizer"
+import EEGVisualizer from "./EEG/EEGVisualizer";
 
-import './styles/App.css';
-import logo from './assets/logo.png';
-
+import "./styles/App.css";
+import logo from "./assets/logo.png";
 
 function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
 
   const showNavbar =
-    location.pathname !== "/" && location.pathname !== "/login";
+    location.pathname !== "/" &&
+    location.pathname !== "/login" &&
+    location.pathname != "/eog" &&
+    location.pathname != "/ecg" &&
+    location.pathname != "/eeg";
 
   const handleNav = (path) => {
     navigate(path, { replace: true });
@@ -63,30 +66,7 @@ function Layout() {
             >
               Heart Rate
             </button>
-            <button
-              onClick={() => handleNav("/eog")}
-              className={`nav-button ${isActive("/eog") ? "active" : ""}`}
-            >
-              EOG Sensor
-            </button>
-            <button
-              onClick={() => handleNav("/ecg")}
-              className={`nav-button ${isActive("/ecg") ? "active" : ""}`}
-            >
-              ECG
-            </button>
-            <button 
-              onClick={()=> handleNav("/eeg")}
-              className={`nav-button ${isActive("/eeg") ? "active" : ""}`}
-            >
-              EEG
-            </button>
-            <button
-              onClick={() => handleNav("/userlist")}
-              className={`nav-button ${isActive("/userlist") ? "active" : ""}`}
-            >
-              Visualize
-            </button>
+
             <button
               onClick={() => handleNav("/test")}
               className={`nav-button ${isActive("/test") ? "active" : ""}`}
@@ -98,6 +78,12 @@ function Layout() {
               className={`nav-button ${isActive("/files") ? "active" : ""}`}
             >
               Manage Files
+            </button>
+            <button
+              onClick={() => handleNav("/userlist")}
+              className={`nav-button ${isActive("/userlist") ? "active" : ""}`}
+            >
+              Visualize
             </button>
           </nav>
         </aside>
@@ -113,30 +99,38 @@ function App() {
   const navigate = useNavigate();
 
   const handleLoginSuccess = () => {
-    navigate("/landingpage",{replace:true});
+    navigate("/landingpage", { replace: true });
   };
 
   const handleLandingPageNext = () => {
-    navigate("/userlist",{replace:true});
+    navigate("/userlist", { replace: true });
   };
 
   const handleUserSelected = () => {
-    navigate("/dashboard",{replace:true});
+    navigate("/dashboard", { replace: true });
   };
 
   return (
     <Routes>
       <Route path="/" element={<Login onLoginSuccess={handleLoginSuccess} />} />
-      <Route path="landingpage" element={<LandingPage  onNext={handleLandingPageNext}  /> } />
-      <Route path="userlist" element={<UserList onUserSelected={handleUserSelected} />} />
+      <Route
+        path="landingpage"
+        element={<LandingPage onNext={handleLandingPageNext} />}
+      />
+      <Route
+        path="userlist"
+        element={<UserList onUserSelected={handleUserSelected} />}
+      />
+      <Route path="ecg" element={<ECG />} />
+      <Route path="eog" element={<EOGUploader />} />
+      <Route path="eeg" element={<EEGChart />} />
       <Route path="/" element={<Layout />}>
-        <Route path="dashboard" element={<DashBoard/>} />
+        <Route path="dashboard" element={<DashPage />} />
         <Route path="summary" element={<Summary />} />
         <Route path="heartrate" element={<CSVUploader />} />
-        <Route path="eog" element={<EOGUploader />} />
-        <Route path="eeg" element={<EEGVisualizer />} />
-        <Route path="ecg" element={<ECG />} />
         <Route path="test" element={<SleepDashboard />} />
+        {/* <Route path="eeg" element={<EEGVisualizer />} /> */}
+
         <Route path="files" element={<ManageFiles />} />
       </Route>
     </Routes>
