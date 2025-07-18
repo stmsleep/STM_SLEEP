@@ -34,7 +34,6 @@ import numpy as np
 from scipy.signal import butter, filtfilt
 
 
-
 # def unauthorized_root(request):
 #     return HttpResponse(
 #         "<h1>401 Unauthorized</h1><p>This API is not meant for direct access.</p>",
@@ -90,6 +89,18 @@ class LoginView(APIView):
             request.session["user"] = user.email
             request.session.modified = True
             return Response({'detail': 'User created and logged in'}, status=status.HTTP_201_CREATED)
+
+
+@csrf_exempt
+def dashboard(request):
+    heart = process_ecg(request)
+    eye = process_eog(request)
+    heart = json.loads(heart.content)
+    eye = json.loads(eye.content)
+    print(heart, eye)
+    heart_file = heart["url"]
+    eye_file = eye["url"]
+    return JsonResponse({"heart_file": heart_file, "eye_file": eye_file})
 
 
 @csrf_exempt
@@ -169,6 +180,7 @@ def process_set_folder(request):
 
     # Store in session
     request.session.modified = True
+
 
 @csrf_exempt
 def set_active_user(request):
@@ -265,7 +277,7 @@ def upload_folder(request):
             path_key = f"paths_{i}"
 
             if file_key not in request.FILES or path_key not in request.POST:
-                continue 
+                continue
 
             file_obj = request.FILES[file_key]
             print("File Object :", file_obj)
@@ -326,7 +338,7 @@ def upload_folder(request):
         import traceback
         traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
-    
+
 
 @csrf_exempt
 def upload_file(request):
@@ -338,7 +350,7 @@ def upload_file(request):
 
     try:
         dbx = get_dropbox_client()
-        
+
         file_obj = request.FILES.get('file')
         if not file_obj:
             return JsonResponse({'error': 'No file uploaded'}, status=400)
@@ -353,7 +365,8 @@ def upload_file(request):
         if filename.endswith(".pdf"):
             print(f"Uploading PDF: {full_dropbox_path}")
             if len(file_bytes) > 150 * 1024 * 1024:
-                upload_large_file(dbx, full_dropbox_path, io.BytesIO(file_bytes))
+                upload_large_file(dbx, full_dropbox_path,
+                                  io.BytesIO(file_bytes))
             else:
                 dbx.files_upload(file_bytes, full_dropbox_path,
                                  mode=dropbox.files.WriteMode.overwrite)
@@ -375,7 +388,8 @@ def upload_file(request):
             save_npz_to_dropbox(dbx, npz_data, npz_path)
 
         elif filename.startswith("STME") and filename.endswith(".edf"):
-            print(f"📤 Uploading {filename} as EDF to Dropbox without preprocessing...")
+            print(
+                f"📤 Uploading {filename} as EDF to Dropbox without preprocessing...")
             from io import BytesIO
             upload_large_file(dbx, full_dropbox_path, BytesIO(file_bytes))
             print(f"✅ Uploaded EDF file: {full_dropbox_path}")
@@ -389,22 +403,20 @@ def upload_file(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-
-
 @csrf_exempt
 def delete_file(request):
     if request.method != "DELETE":
-        return JsonResponse({"error":"Invalid request method"},status=400)
+        return JsonResponse({"error": "Invalid request method"}, status=400)
     data = json.loads(request.body)
     file_Path = data.get('path')
     if not file_Path:
-        return JsonResponse({"error":"Invalid file path"},status=400)
+        return JsonResponse({"error": "Invalid file path"}, status=400)
     dbx = get_dropbox_client()
     dbx.files_delete_v2(file_Path)
 
     process_set_folder(request)
 
-    return JsonResponse({"message":"Deleted"},status=200)
+    return JsonResponse({"message": "Deleted"}, status=200)
 
 
 @csrf_exempt
@@ -540,14 +552,17 @@ def process_eeg(request, channel_name):
         plt.close(fig)
         buf.seek(0)
 
-        dbx.files_upload(buf.read(), plot_path, mode=dropbox.files.WriteMode.overwrite)
+        dbx.files_upload(buf.read(), plot_path,
+                         mode=dropbox.files.WriteMode.overwrite)
 
         # ----- Upload NPZ -----
         npz_buf = io.BytesIO()
-        np.savez_compressed(npz_buf, signal=signal[0], times=times, sampling_rate=sf)
+        np.savez_compressed(
+            npz_buf, signal=signal[0], times=times, sampling_rate=sf)
         npz_buf.seek(0)
 
-        dbx.files_upload(npz_buf.read(), npz_path, mode=dropbox.files.WriteMode.overwrite)
+        dbx.files_upload(npz_buf.read(), npz_path,
+                         mode=dropbox.files.WriteMode.overwrite)
 
         band_link = dbx.files_get_temporary_link(plot_path).link
         npz_link = dbx.files_get_temporary_link(npz_path).link
@@ -562,8 +577,6 @@ def process_eeg(request, channel_name):
     except Exception as e:
         traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
-
-
 
 
 @csrf_exempt
@@ -615,7 +628,8 @@ def jarvis(request):
         dbx = get_dropbox_client()
         try:
             md = dbx.files_get_metadata(prediction_dropbox_path)
-            print(f"✅ Prediction already exists on Dropbox at {prediction_dropbox_path}, downloading...")
+            print(
+                f"✅ Prediction already exists on Dropbox at {prediction_dropbox_path}, downloading...")
             _, res = dbx.files_download(prediction_dropbox_path)
             prediction = json.loads(res.content)
             return JsonResponse({"prediction": prediction})
@@ -635,11 +649,13 @@ def jarvis(request):
             print(f"Local EDF saved at: {local_edf_path}")
 
         # 📤 Check & Upload EDF
-        print(f"\n🔵 STEP 4 ✅ Checking if file exists on remote: {remote_edf_path}")
+        print(
+            f"\n🔵 STEP 4 ✅ Checking if file exists on remote: {remote_edf_path}")
         check_file_cmd = (
             f'{ssh_cmd} "bash -c \'if test -f \\"{remote_edf_path}\\"; then echo exists; else echo missing; fi\'"'
         )
-        result = subprocess.check_output(check_file_cmd, shell=True, text=True).strip()
+        result = subprocess.check_output(
+            check_file_cmd, shell=True, text=True).strip()
         print(f"Remote file check output: '{result}'")
 
         if "missing" in result:
@@ -664,7 +680,8 @@ def jarvis(request):
         check_cwt_cmd = (
             f'{ssh_cmd} "bash -c \'if test -d \\"{remote_cwt_images}\\"; then echo exists; else echo missing; fi\'"'
         )
-        cwt_result = subprocess.check_output(check_cwt_cmd, shell=True, text=True).strip()
+        cwt_result = subprocess.check_output(
+            check_cwt_cmd, shell=True, text=True).strip()
         print(f"CWT check output: '{cwt_result}'")
 
         if "missing" in cwt_result:
@@ -725,7 +742,8 @@ def jarvis(request):
 
         # 📝 Save prediction to Dropbox for caching
         pred_bytes = io.BytesIO(json.dumps(prediction).encode())
-        dbx.files_upload(pred_bytes.read(), prediction_dropbox_path, mode=WriteMode("overwrite"))
+        dbx.files_upload(pred_bytes.read(),
+                         prediction_dropbox_path, mode=WriteMode("overwrite"))
         print(f"✅ Saved prediction to Dropbox at {prediction_dropbox_path}")
 
         return JsonResponse({"prediction": prediction})
@@ -733,16 +751,14 @@ def jarvis(request):
     except Exception as e:
         traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
-    
 
 
 @csrf_exempt
 def fetch_file_name(request):
     active_folder = request.session.get('files')
     if not active_folder:
-        return JsonResponse({"Error":"No files found"},status=401)
-    return JsonResponse({"data":active_folder},status=200)
-
+        return JsonResponse({"Error": "No files found"}, status=401)
+    return JsonResponse({"data": active_folder}, status=200)
 
 
 # Dropbox token creation
@@ -786,5 +802,3 @@ def dropbox_oauth_callback(request):
         return HttpResponse("Dropbox tokens saved successfully.")
     else:
         return HttpResponse(f"Error: {response.text}", status=500)
-
-
