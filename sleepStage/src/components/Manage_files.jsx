@@ -84,7 +84,7 @@ export default function ManageFiles() {
           {files.length === 0 ? (
             <div className="no-files">No files found. Upload to get started!</div>
           ) : (
-            files.map((file, index) => (
+            files.map((file, index) => file.displayName.length >0 ?(
               <div className="file-list-item" key={index}>
                 <div className="file-name">{file.displayName}</div>
                 <button
@@ -95,7 +95,7 @@ export default function ManageFiles() {
                   <FaTrash />
                 </button>
               </div>
-            ))
+            ):null)
           )}
         </div>
       )}

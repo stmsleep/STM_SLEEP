@@ -1,7 +1,6 @@
 import CSVUploader from "./HeartRate/CSVUploader";
 import EOGUploader from "./EOG/EOGUploader";
 import Login from "./components/Login";
-import DashBoard from "./components/DashBoard";
 import LandingPage from "./components/LandingPage";
 import DashPage from "./components/DashPage";
 import SleepDashboard from "./components/jarvis_testing";
