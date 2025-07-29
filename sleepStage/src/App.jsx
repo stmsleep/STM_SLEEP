@@ -30,10 +30,7 @@ function Layout() {
 
   const showNavbar =
     location.pathname !== "/" &&
-    location.pathname !== "/login" &&
-    location.pathname != "/eog" &&
-    location.pathname != "/ecg" &&
-    location.pathname != "/eeg";
+    location.pathname !== "/login";
 
   const handleNav = (path) => {
     navigate(path, { replace: true });
@@ -58,12 +55,6 @@ function Layout() {
               className={`nav-button ${isActive("/summary") ? "active" : ""}`}
             >
               Summary
-            </button>
-            <button
-              onClick={() => handleNav("/heartrate")}
-              className={`nav-button ${isActive("/heartrate") ? "active" : ""}`}
-            >
-              Heart Rate
             </button>
 
             <button
