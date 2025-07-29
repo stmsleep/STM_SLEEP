@@ -8,6 +8,21 @@
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+.no-chart-message {
+  height: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #777;
+  text-align: center;
+  background-color: #f8f8f8; /* Optional: subtle background */
+  border: 1px dashed #ccc;   /* Optional: hinting it's a placeholder */
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+
 .signals {
   display: flex;
   flex-direction: column;

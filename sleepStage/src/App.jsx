@@ -61,7 +61,7 @@ function Layout() {
               onClick={() => handleNav("/test")}
               className={`nav-button ${isActive("/test") ? "active" : ""}`}
             >
-              test
+              Sleep Analysis
             </button>
             <button
               onClick={() => handleNav("/files")}
@@ -111,13 +111,13 @@ function App() {
         path="userlist"
         element={<UserList onUserSelected={handleUserSelected} />}
       />
-      <Route path="ecg" element={<ECG />} />
-      <Route path="eog" element={<EOGUploader />} />
-      <Route path="eeg" element={<EEGChart />} />
       <Route path="/" element={<Layout />}>
         <Route path="dashboard" element={<DashPage />} />
         <Route path="summary" element={<Summary />} />
         <Route path="heartrate" element={<CSVUploader />} />
+        <Route path="ecg" element={<ECG />} />
+        <Route path="eog" element={<EOGUploader />} />
+        <Route path="eeg" element={<EEGChart />} />
         <Route path="test" element={<SleepDashboard />} />
         {/* <Route path="eeg" element={<EEGVisualizer />} /> */}
 

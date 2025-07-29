@@ -278,6 +278,7 @@ function DashPage() {
   const [sleepPrediction, setSleepPrediction] = useState(null);
   const [sleepStats, setSleepStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [chartDataExists,setChartDataEcist] = useState(false);
 
   const getSleepStats = (data) => {
     if (!data || data.length === 0) return null;
@@ -346,6 +347,7 @@ function DashPage() {
         if (sleepRes.data.prediction) {
           setSleepPrediction(sleepRes.data.prediction);
           setSleepStats(getSleepStats(sleepRes.data.prediction));
+          setChartDataEcist(true);
         }
       } catch (err) {
         console.error("Dashboard load failed:", err);
@@ -400,13 +402,21 @@ function DashPage() {
   return (
   <div className="dashboard-container">
     {/* Hypnogram Full Width */}
-    <div className="chart-full">
-      {loading ? (
-        <Skeleton height={420} />
-      ) : (
-        <ReactECharts option={getHypnogramOptions()} style={{ height: "420px" }} />
-      )}
+    <div className="dashboard-container">
+  {/* Hypnogram Full Width */}
+      <div className="chart-full" onClick={() => navigate("/EEG")}>
+        {loading ? (
+          <Skeleton height={420} />
+        ) : chartDataExists ? ( // Optional: Replace with your chart data check
+          <ReactECharts option={getHypnogramOptions()} style={{ height: "420px" }} />
+        ) : (
+          <div className="no-chart-message">
+            Go to Sleep Analysis to generate your hypnogram
+          </div>
+        )}
+      </div>
     </div>
+
 
     {/* Pie + Heart */}
     <div className="chart-row">
@@ -445,18 +455,18 @@ function DashPage() {
       </div>
 
       <div
-  className="gauge-chart"
-  onClick={() => navigate("/heartrate")}
-  style={{
-    width: "100%",
-    margin: "0 auto",
-    padding: "1rem",
-    background: "#f9f9f9",
-    borderRadius: "1rem",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-    textAlign: "center",
-  }}
->
+        className="gauge-chart"
+        onClick={() => navigate("/heartrate")}
+        style={{
+          width: "100%",
+          margin: "0 auto",
+          padding: "1rem",
+          background: "#f9f9f9",
+          borderRadius: "1rem",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+          textAlign: "center",
+        }}
+      >
   <h2 style={{ marginBottom: "1rem", fontSize: "1.5rem", color: "#444" }}>
     Heart Rate
   </h2>
@@ -528,7 +538,7 @@ function DashPage() {
     {/* EEG & EOG Scrollable Section */}
     <div className="chart-row">
       <div className="signal-box" onClick={() => navigate("/ecg")}>
-        <h3>EEG</h3>
+        <h3>ECG</h3>
         {loading || !heartChartData ? (
           <Skeleton height={200} />
         ) : (
