@@ -237,6 +237,8 @@
 // }
 
 // export default DashPage;
+
+
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { parseNPZ } from "../utils/parseNpz";
@@ -265,9 +267,10 @@ function getEChartOption(title, xData, seriesArray) {
   };
 }
 
+const stageMap = (val) => ({ 0: "W", 1: "N1", 2: "N2", 3: "N3", 4: "R" }[val] || val);
+
 function DashPage() {
   const navigate = useNavigate();
-
   const [avgHeartRate, setAvgHeartRate] = useState(72.03);
   const [maxEyeMovement, setMaxEyeMovement] = useState(null);
   const [heartChartData, setHeartChartData] = useState(null);
@@ -275,32 +278,33 @@ function DashPage() {
   const [sleepPrediction, setSleepPrediction] = useState(null);
   const [sleepStats, setSleepStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [chartDataExists,setChartDataEcist] = useState(false);
 
-  // ---------------------- Sleep helpers ----------------------
   const getSleepStats = (data) => {
     if (!data || data.length === 0) return null;
     const totalEpochs = data.length;
-    const stageCounts = { 0:0, 1:0, 2:0, 3:0, 4:0 };
-    data.forEach(stage => stageCounts[stage]++);
+    const stageCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
+    data.forEach((stage) => stageCounts[stage]++);
     const percentages = Object.fromEntries(
-      Object.entries(stageCounts).map(([k,v]) => [k, ((v/totalEpochs)*100).toFixed(1)])
+      Object.entries(stageCounts).map(([k, v]) => [k, ((v / totalEpochs) * 100).toFixed(1)])
     );
-    const qualityScore = Math.max(0, Math.min(100,
-      parseFloat(percentages[3]) + parseFloat(percentages[4]) - parseFloat(percentages[0])
-    ));
+    const qualityScore = Math.max(
+      0,
+      Math.min(100, parseFloat(percentages[3]) + parseFloat(percentages[4]) - parseFloat(percentages[0]))
+    );
     return {
       totalSleepTime: (totalEpochs * 30 / 60).toFixed(1),
       percentages,
-      qualityScore: qualityScore.toFixed(1)
+      qualityScore: qualityScore.toFixed(1),
     };
   };
 
-  // ---------------------- Fetch dashboard + sleep ----------------------
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1. Fetch existing dashboard (heart, eye)
-        const { data } = await axios.get("http://localhost:8000/dashboard/", { withCredentials: true });
+        const { data } = await axios.get("http://localhost:8000/dashboard/", {
+          withCredentials: true,
+        });
         if (data?.heart_file) {
           const res = await fetch(data.heart_file);
           const buffer = await res.arrayBuffer();
@@ -308,11 +312,11 @@ function DashPage() {
           let arr = parsed["qvar"] || parsed["data_corrected"] || [];
           arr = arr.slice(60000, 63000);
           if (arr.length > 0) {
-            const avg = arr.reduce((a,b)=>a+b,0) / arr.length;
+            const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
             setAvgHeartRate(avg.toFixed(2));
             setHeartChartData({
               x: Array.from({ length: arr.length }, (_, i) => i),
-              y: arr
+              y: arr,
             });
           }
         }
@@ -326,20 +330,24 @@ function DashPage() {
             setMaxEyeMovement((-Math.min(...arr)).toFixed(2));
             setEyeChartData({
               x: Array.from({ length: arr.length }, (_, i) => i),
-              y: arr
+              y: arr,
             });
           }
         }
 
-        // 2. Fetch sleep prediction (auto for EEG Fpz-Cz)
-        const sleepRes = await axios.post("http://localhost:8000/jarvis/", {
-          channel_name: "T7",
-          sfreq: 100,
-          ssh_cmd: "ssh -o StrictHostKeyChecking=no -p 11214 root@ssha.jarvislabs.ai"
-        }, { withCredentials: true });
+        const sleepRes = await axios.post(
+          "http://localhost:8000/jarvis/",
+          {
+            channel_name: "T7",
+            sfreq: 100,
+            ssh_cmd: "ssh -o StrictHostKeyChecking=no -p 11214 root@ssha.jarvislabs.ai",
+          },
+          { withCredentials: true }
+        );
         if (sleepRes.data.prediction) {
           setSleepPrediction(sleepRes.data.prediction);
           setSleepStats(getSleepStats(sleepRes.data.prediction));
+          setChartDataEcist(true);
         }
       } catch (err) {
         console.error("Dashboard load failed:", err);
@@ -350,162 +358,229 @@ function DashPage() {
     fetchData();
   }, []);
 
-  // ---------------------- Hypnogram chart ----------------------
   const getHypnogramOptions = () => {
     if (!sleepPrediction) return {};
     const timePoints = Array.from({ length: sleepPrediction.length }, (_, i) => i);
-    const stageMap = {0: 'W', 1: 'N1', 2: 'N2', 3: 'N3', 4: 'R'};
     return {
-      title: { text: 'Hypnogram (Sleep Stages)', left: 'center' },
-      tooltip: { trigger: 'axis' },
+      title: { text: "Hypnogram (Sleep Stages)", left: "center" },
+      tooltip: { trigger: "axis" },
       xAxis: {
-        type: 'category',
+        type: "category",
         data: timePoints,
-        name: 'Epoch (30s)',
-        nameLocation: 'middle',
-        nameGap: 25
+        name: "Epoch (30s)",
+        nameLocation: "middle",
+        nameGap: 25,
       },
       yAxis: {
-        type: 'value',
-        inverse:true,
+        type: "value",
+        inverse: true,
         min: 0,
         max: 4,
         interval: 1,
-        axisLabel: { formatter: val => stageMap[val] || val },
-        name: 'Stage',
-        nameLocation: 'middle',
-        nameGap: 40
+        axisLabel: {
+          formatter: (val) => stageMap(val),
+        },
+        name: "Stage",
+        nameLocation: "middle",
+        nameGap: 40,
       },
-      series: [{
-        data: sleepPrediction,
-        type: 'line',
-        step: 'middle',
-        lineStyle: { width: 2 },
-        symbol: 'circle',
-        symbolSize: 4
-      }],
-      dataZoom: [{ type: 'inside' }],
+      series: [
+        {
+          data: sleepPrediction,
+          type: "line",
+          step: "middle",
+          lineStyle: { width: 2 },
+          symbol: "circle",
+          symbolSize: 4,
+        },
+      ],
+      dataZoom: [{ type: "inside" }],
       toolbox: { feature: { dataZoom: {}, restore: {}, saveAsImage: {} } },
     };
   };
 
   return (
-    <div className="wrapper">
-      <div className="signals">
-        {/* ---------------------- Hypnogram Chart ---------------------- */}
-        <div className="eeg" style={{ width: "100%", marginBottom: "2rem" }}>
-          {sleepPrediction ? (
-            <ReactECharts option={getHypnogramOptions()} style={{ height: "300px" }} />
-          ) : (
-            <Skeleton height={300} />
-          )}
-          {sleepStats && (
-            <div style={{
-              display: "flex", gap: "1rem", flexWrap: "wrap", 
-              justifyContent: "center", marginTop: "1rem"
-            }}>
-              <div style={cardStyle}><h4>Total Sleep Time</h4><p>{sleepStats.totalSleepTime} min</p></div>
-              <div style={cardStyle}><h4>Sleep Quality</h4><p>{sleepStats.qualityScore}/100</p></div>
-              {Object.entries(sleepStats.percentages).map(([stage, pct]) => (
-                <div key={stage} style={cardStyle}>
-                  <h4>Stage {stageMap(stage)}</h4>
-                  <p>{pct}%</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ---------------------- Body Signals ---------------------- */}
-        <div className="bodySignals">
-          <div onClick={() => navigate("/eog")} style={{ cursor: "pointer" }} className="eog">
-            <h2>EOG</h2>
-            {eyeChartData && (
-              <ReactECharts
-                option={getEChartOption("Eye Signal", eyeChartData.x, [{
-                  data: eyeChartData.y,
-                  type: "line",
-                  name: "Eye Movement",
-                  smooth: true,
-                  symbol: "none",
-                  lineStyle: { color: "#3498db" },
-                }])}
-                style={{ height: 100 }}
-              />
-            )}
+  <div className="dashboard-container">
+    {/* Hypnogram Full Width */}
+    <div className="dashboard-container">
+  {/* Hypnogram Full Width */}
+      <div className="chart-full" onClick={() => navigate("/EEG")}>
+        {loading ? (
+          <Skeleton height={420} />
+        ) : chartDataExists ? ( // Optional: Replace with your chart data check
+          <ReactECharts option={getHypnogramOptions()} style={{ height: "420px" }} />
+        ) : (
+          <div className="no-chart-message">
+            Go to Sleep Analysis to generate your hypnogram
           </div>
-          <div onClick={() => navigate("/ecg")} style={{ cursor: "pointer" }} className="ecg">
-            <h2>ECG</h2>
-            {heartChartData && (
-              <ReactECharts
-                option={getEChartOption("Heart Signal", heartChartData.x, [{
-                  data: heartChartData.y,
-                  type: "line",
-                  name: "Heart Rate Signal",
-                  smooth: true,
-                  lineStyle: { color: "#e74c3c" },
-                }])}
-                style={{ height: 200 }}
-              />
-            )}
-          </div>
-          <div className="leg" onClick={()=>navigate("/heartrate")}>
-            <h2>Heart Rate</h2>
-            {avgHeartRate && (
-              <ReactECharts
-                option={{
-                  series: [
-                    {
-                      type: 'gauge',
-                      startAngle: 180,
-                      endAngle: 0,
-                      min: 40,
-                      max: 120,
-                      splitNumber: 8,
-                      axisLine: {
-                        lineStyle: {
-                          width: 15,
-                          color: [
-                            [0.3, '#67e0e3'],
-                            [0.7, '#37a2da'],
-                            [1, '#fd666d']
-                          ]
-                        }
-                      },
-                      pointer: {
-                        icon: 'rect',
-                        length: '60%',
-                        width: 8
-                      },
-                      detail: {
-                        valueAnimation: true,
-                        formatter: '{value} bpm',
-                        fontSize: 20,
-                        color: '#333'
-                      },
-                      data: [{ value: avgHeartRate }]
-                    }
-                  ]
-                }}
-                style={{ height: 200,width:"90%" }}
-              />
-            )}
-          </div>
-
-        </div>
+        )}
       </div>
     </div>
-  );
-}
+
+
+    {/* Pie + Heart */}
+    <div className="chart-row">
+      <div className="pie-chart">
+        <h3 style={{ textAlign: "center" }}>Sleep Stage Distribution</h3>
+        {loading || !sleepStats ? (
+          <Skeleton height={250} />
+        ) : (
+          <ReactECharts
+            option={{
+              tooltip: { trigger: "item" },
+              legend: { bottom: 0 },
+              series: [
+                
+                {
+                  name: "Sleep Stages",
+                  type: "pie",
+                  radius: ["40%", "70%"],
+                  itemStyle: {
+                    borderRadius: 10,
+                    borderColor: '#fff',
+                    borderWidth: 2
+                  },
+                  avoidLabelOverlap: false,
+                  label: { show: true, formatter: "{b}: {d}%" },
+                  data: Object.entries(sleepStats.percentages).map(([stage, value]) => ({
+                    name: stageMap(stage),
+                    value: parseFloat(value),
+                  })),
+                },
+              ],
+            }}
+            style={{ height: 250 }}
+          />
+        )}
+      </div>
+
+      <div
+        className="gauge-chart"
+        onClick={() => navigate("/heartrate")}
+        style={{
+          width: "100%",
+          margin: "0 auto",
+          padding: "1rem",
+          background: "#f9f9f9",
+          borderRadius: "1rem",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+          textAlign: "center",
+        }}
+      >
+  <h2 style={{ marginBottom: "1rem", fontSize: "1.5rem", color: "#444" }}>
+    Heart Rate
+  </h2>
+  {loading ? (
+    <Skeleton height={300} />
+  ) : (
+    <ReactECharts
+      option={{
+        series: [
+          {
+            type: "gauge",
+            startAngle: 180,
+            endAngle: 0,
+            radius: "100%",
+            min: 40,
+            max: 120,
+            splitNumber: 8,
+            axisLine: {
+              lineStyle: {
+                width: 20,
+                color: [
+                  [0.3, "#91cc75"],
+                  [0.7, "#fac858"],
+                  [1, "#ee6666"],
+                ],
+              },
+            },
+            pointer: {
+              // icon: "rect", // or "rect"
+              // length: "60%",
+              // width: 10,
+              itemStyle: {
+                color: "#1a1818ff", // 🔴 Change this to your desired needle color
+              },
+            },
+
+            
+            splitLine: {
+              distance: -20,
+              length: 20,
+              lineStyle: {
+                color: "#000",
+                width: 2,
+              },
+            },
+            axisLabel: {
+              distance: -30,
+              color: "#333",
+              fontSize: 14,
+            },
+            detail: {
+              valueAnimation: true,
+              formatter: "{value} bpm",
+              fontSize: 24,
+              color: "#111",
+              offsetCenter: [0, "-20%"],
+            },
+            data: [{ value: avgHeartRate }],
+          },
+        ],
+      }}
+      style={{ height: 300 }}
+    />
+  )}
+</div>
+
+    </div>
+
+    {/* EEG & EOG Scrollable Section */}
+    <div className="chart-row">
+      <div className="signal-box" onClick={() => navigate("/ecg")}>
+        <h3>ECG</h3>
+        {loading || !heartChartData ? (
+          <Skeleton height={200} />
+        ) : (
+          <ReactECharts
+            option={getEChartOption("Heart Signal", heartChartData.x, [
+              {
+                data: heartChartData.y,
+                type: "line",
+                name: "Heart Rate",
+                smooth: true,
+                lineStyle: { color: "#e74c3c" },
+              },
+            ])}
+            style={{ height: 200 }}
+          />
+        )}
+      </div>
+      <div className="signal-box" onClick={() => navigate("/eog")}>
+        <h3>EOG</h3>
+        {loading || !eyeChartData ? (
+          <Skeleton height={200} />
+        ) : (
+          <ReactECharts
+            option={getEChartOption("Eye Signal", eyeChartData.x, [
+              {
+                data: eyeChartData.y,
+                type: "line",
+                name: "Eye Movement",
+                smooth: true,
+                lineStyle: { color: "#3498db" },
+                symbol: "none",
+              },
+            ])}
+            style={{ height: 200 }}
+          />
+        )}
+      </div>
+    </div>
+  </div>
+);
+
+
+  }
 
 export default DashPage;
-
-const cardStyle = {
-  background: "#f8f9fa",
-  padding: "1rem",
-  borderRadius: "8px",
-  boxShadow: "0 0 6px rgba(0,0,0,0.1)",
-  textAlign: "center"
-};
-
-const stageMap = (val) => ({0:'W',1:'N1',2:'N2',3:'N3',4:'R'})[val] || val;

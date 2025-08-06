@@ -158,7 +158,7 @@ export default function SleepDashboard() {
           {errorMsg && <p style={{ color: "red", marginTop: "1rem" }}>{errorMsg}</p>}
         </div>
 
-        {stats && (
+        {/* {stats && (
           <div style={{ flex: "2 1 600px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "1rem" }}>
             <div style={cardStyle}>
               <h4>Total Sleep Time</h4>
@@ -175,7 +175,7 @@ export default function SleepDashboard() {
               </div>
             ))}
           </div>
-        )}
+        )} */}
       </div>
 
       {prediction && (

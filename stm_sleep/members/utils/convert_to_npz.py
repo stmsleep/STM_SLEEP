@@ -56,5 +56,5 @@ def process_heart_to_npz(file_path):
     return {
         "time": times,
         "spo2": spo2[:num_samples],
-        "pr_bpm": pr[:num_samples]
+        "pr_bpm": pr[:num_samaples]
     }

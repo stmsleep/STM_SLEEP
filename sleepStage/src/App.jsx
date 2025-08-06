@@ -30,10 +30,7 @@ function Layout() {
 
   const showNavbar =
     location.pathname !== "/" &&
-    location.pathname !== "/login" &&
-    location.pathname != "/eog" &&
-    location.pathname != "/ecg" &&
-    location.pathname != "/eeg";
+    location.pathname !== "/login";
 
   const handleNav = (path) => {
     navigate(path, { replace: true });
@@ -59,18 +56,12 @@ function Layout() {
             >
               Summary
             </button>
-            <button
-              onClick={() => handleNav("/heartrate")}
-              className={`nav-button ${isActive("/heartrate") ? "active" : ""}`}
-            >
-              Heart Rate
-            </button>
 
             <button
               onClick={() => handleNav("/test")}
               className={`nav-button ${isActive("/test") ? "active" : ""}`}
             >
-              test
+              Sleep Analysis
             </button>
             <button
               onClick={() => handleNav("/files")}
@@ -120,13 +111,13 @@ function App() {
         path="userlist"
         element={<UserList onUserSelected={handleUserSelected} />}
       />
-      <Route path="ecg" element={<ECG />} />
-      <Route path="eog" element={<EOGUploader />} />
-      <Route path="eeg" element={<EEGChart />} />
       <Route path="/" element={<Layout />}>
         <Route path="dashboard" element={<DashPage />} />
         <Route path="summary" element={<Summary />} />
         <Route path="heartrate" element={<CSVUploader />} />
+        <Route path="ecg" element={<ECG />} />
+        <Route path="eog" element={<EOGUploader />} />
+        <Route path="eeg" element={<EEGChart />} />
         <Route path="test" element={<SleepDashboard />} />
         {/* <Route path="eeg" element={<EEGVisualizer />} /> */}
 
