@@ -93,14 +93,26 @@ class LoginView(APIView):
 
 @csrf_exempt
 def dashboard(request):
-    heart = process_ecg(request)
+    heart = heart_rate(request)
+    ecg = process_ecg(request)
     eye = process_eog(request)
-    heart = json.loads(heart.content)
+
+    heart = json.loads(heart.content)  # bytes → dict
+    ecg = json.loads(ecg.content)      # FIXED: JsonResponse → dict
     eye = json.loads(eye.content)
-    print(heart, eye)
+
+    print(ecg)
+
     heart_file = heart["url"]
+    ecg_file = ecg["url"]
     eye_file = eye["url"]
-    return JsonResponse({"heart_file": heart_file, "eye_file": eye_file})
+
+    return JsonResponse({
+        "heart_file": heart_file,
+        "ecg_file": ecg_file,
+        "eye_file": eye_file
+    })
+
 
 
 @csrf_exempt
