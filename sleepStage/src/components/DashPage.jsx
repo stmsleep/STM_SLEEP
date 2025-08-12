@@ -28,13 +28,6 @@ function getEChartOption(title, xData, seriesArray) {
 
 const stageMap = (val) => ({ 0: "W", 1: "N1", 2: "N2", 3: "N3", 4: "R" }[val] || val);
 
-function getEmojiStatus(score) {
-  const numScore = parseFloat(score);
-  if (numScore >= 80) return "😴 Excellent sleep quality";
-  if (numScore >= 60) return "🙂 Fair sleep quality";
-  return "😟 Poor sleep quality";
-}
-
 function countTransitions(data) {
   let transitions = 0;
   for (let i = 1; i < data.length; i++) {
@@ -56,33 +49,110 @@ function DashPage() {
 
   const getSleepStats = (data) => {
     if (!data || data.length === 0) return null;
+  
     const totalEpochs = data.length;
     const stageCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
-
+  
     data.forEach((stage) => stageCounts[stage]++);
-
+  
+    // Percent of total time in bed
     const percentages = Object.fromEntries(
       Object.entries(stageCounts).map(([k, v]) => [k, ((v / totalEpochs) * 100).toFixed(1)])
     );
-
+  
+    // Total sleep epochs (N1+N2+N3+REM)
     const totalSleepEpochs = stageCounts[1] + stageCounts[2] + stageCounts[3] + stageCounts[4];
-    const totalSleepTime = (totalSleepEpochs * 30 / 60).toFixed(1); // in minutes
+    const totalSleepTime = (totalSleepEpochs * 30 / 60).toFixed(1); // minutes
+  
+    // Observed fractions
+    const observedTSTFractions = {
+      N1: stageCounts[1] / totalSleepEpochs,
+      N2: stageCounts[2] / totalSleepEpochs,
+      N3: stageCounts[3] / totalSleepEpochs,
+      REM: stageCounts[4] / totalSleepEpochs,
+    };
+  
+    // Optimal proportions
+    const optimalProportions = { N1: 0.05, N2: 0.50, N3: 0.20, REM: 0.25 };
+  
+    // Weights
+    const weights = { N1: 0.10, N2: 0.25, N3: 0.40, REM: 0.25 };
+  
+    // SQI calculation
+    let SQI = 0;
+    for (let stage of ["N1", "N2", "N3", "REM"]) {
+      const diff = Math.abs(observedTSTFractions[stage] - optimalProportions[stage]);
+      const stageScore = Math.max(0, 1 - diff / optimalProportions[stage]);
+      SQI += weights[stage] * stageScore;
+    }
+    SQI = (SQI * 100).toFixed(1);
+  
+    // --- TPS Calculation ---
+    const allowedTransitions = new Set([
+      "0-1", // W → N1
+      "1-0", "1-1", "1-2", // N1 → W, N1, N2
+      "2-1", "2-2", "2-3", "2-4", // N2 → N1, N2, N3, REM
+      "3-2", "3-3", // N3 → N2, N3
+      "4-0", "4-1", "4-4" // REM → W, N1, REM
+    ]);
+  
+    const totalTransitions = totalEpochs - 1;
+    let badTransitions = 0;
+    for (let t = 0; t < totalTransitions; t++) {
+      const key = `${data[t]}-${data[t + 1]}`;
+      if (!allowedTransitions.has(key)) badTransitions++;
+    }
+  
+    let TPS = 100 * (1 - badTransitions / totalTransitions);
+  
+    // --- Anti-fragmentation tweak ---
+    const lambda = 0.2; // can adjust between 0 and 0.3
+    let oneEpochBouts = 0;
+    let totalBouts = 0;
+  
+    let boutLength = 1;
+    for (let i = 1; i < totalEpochs; i++) {
+      if (data[i] === data[i - 1]) {
+        boutLength++;
+      } else {
+        totalBouts++;
+        if (boutLength === 1) oneEpochBouts++;
+        boutLength = 1;
+      }
+    }
+    // Count the last bout
+    totalBouts++;
+    if (boutLength === 1) oneEpochBouts++;
+  
+    const fragPenalty = (1 - lambda * (oneEpochBouts / totalBouts));
+    const TPS_plus = (TPS * fragPenalty).toFixed(1);
+  
     const sleepEfficiency = ((totalSleepEpochs / totalEpochs) * 100).toFixed(1);
-    const qualityScore = Math.max(
-      0,
-      Math.min(100, parseFloat(percentages[3]) + parseFloat(percentages[4]) - parseFloat(percentages[0]))
-    );
-
     const transitions = countTransitions(data);
-
+  
     return {
       totalSleepTime,
       percentages,
-      qualityScore: qualityScore.toFixed(1),
+      observedTSTPercentages: Object.fromEntries(
+        Object.entries(observedTSTFractions).map(([k, v]) => [k, (v * 100).toFixed(1)])
+      ),
+      stageEfficiency: Object.fromEntries(
+        Object.entries(observedTSTFractions).map(([stage, frac]) => [
+          stage,
+          ((frac / optimalProportions[stage]) * 100).toFixed(1),
+        ])
+      ),
+      qualityScore: SQI,
+      TPS: TPS.toFixed(1),
+      TPS_plus,
       sleepEfficiency,
       transitions
     };
   };
+  
+  
+  
+  
 
   useEffect(() => {
     const fetchData = async () => {
@@ -235,58 +305,98 @@ function DashPage() {
         )}
       </div> */}
       <div className="sleep-analysis">
-        <h3>Sleep Insights</h3>
-        {loading || !sleepStats ? (
-          <Skeleton height={150} />
-        ) : (
-          <>
-            {/* <div
-              className={`sleep-score ${
-                sleepStats.qualityScore >= 80
-                  ? "good"
-                  : sleepStats.qualityScore >= 60
-                  ? "fair"
-                  : "poor"
-              }`}
-            >
-              {getEmojiStatus(sleepStats.qualityScore)}
-            </div> */}
-
-            <div className="sleep-stats-grid">
-              <div className="stat-card">
-                <span className="stat-icon">⏱</span>
-                <div className="stat-info">
-                  <span className="stat-title">Total Sleep Time</span>
-                  <span className="stat-value">
-                    {sleepStats.totalSleepTime} min ({(sleepStats.totalSleepTime/60).toFixed(2)} hrs)
-                  </span>
-                </div>
-              </div>
-              <div className="stat-card">
-                <span className="stat-icon">💤</span>
-                <div className="stat-info">
-                  <span className="stat-title">Sleep Efficiency</span>
-                  <span className="stat-value">{sleepStats.sleepEfficiency}%</span>
-                </div>
-              </div>
-              <div className="stat-card">
-                <span className="stat-icon">🔄</span>
-                <div className="stat-info">
-                  <span className="stat-title">Stage Changes</span>
-                  <span className="stat-value">{sleepStats.transitions}</span>
-                </div>
-              </div>
-              <div className="stat-card">
-                <span className="stat-icon">👁</span>
-                <div className="stat-info">
-                  <span className="stat-title">Max Eye Movement</span>
-                  <span className="stat-value">{maxEyeMovement} units</span>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
+  <h3>Sleep Insights</h3>
+  {loading || !sleepStats ? (
+    <Skeleton height={150} />
+  ) : (
+    <>
+      {/* Summary Stats */}
+      <div className="sleep-stats-grid">
+        <div className="stat-card">
+          <span className="stat-icon">⏱</span>
+          <div className="stat-info">
+            <span className="stat-title">Total Sleep Time</span>
+            <span className="stat-value">
+              {sleepStats.totalSleepTime} min ({(sleepStats.totalSleepTime / 60).toFixed(2)} hrs)
+            </span>
+          </div>
+        </div>
+        <div className="stat-card">
+          <span className="stat-icon">💤</span>
+          <div className="stat-info">
+            <span className="stat-title">Sleep Efficiency</span>
+            <span className="stat-value">{sleepStats.sleepEfficiency}%</span>
+          </div>
+        </div>
+        <div className="stat-card">
+          <span className="stat-icon">🔄</span>
+          <div className="stat-info">
+            <span className="stat-title">Stage Changes</span>
+            <span className="stat-value">{sleepStats.transitions}</span>
+          </div>
+        </div>
+        <div className="stat-card">
+          <span className="stat-icon">👁</span>
+          <div className="stat-info">
+            <span className="stat-title">Max Eye Movement</span>
+            <span className="stat-value">{maxEyeMovement} units</span>
+          </div>
+        </div>
       </div>
+
+      {/* Add these cards inside the existing sleep-stats-grid or right below it */}
+      <div className="stat-card">
+        <span className="stat-icon">📊</span>
+        <div className="stat-info">
+          <span className="stat-title">SQI</span>
+          <span className="stat-value">{sleepStats.qualityScore} / 100</span>
+          <small className="stat-note">Sleep Quality Index</small>
+        </div>
+      </div>
+
+      <div className="stat-card">
+        <span className="stat-icon">🔁</span>
+        <div className="stat-info">
+          <span className="stat-title">TPS</span>
+          <span className="stat-value">{sleepStats.TPS} / 100</span>
+          <small className="stat-note">Transition Pattern Score</small>
+        </div>
+      </div>
+
+      <div className="stat-card">
+        <span className="stat-icon">🛡</span>
+        <div className="stat-info">
+          <span className="stat-title">TPS₊</span>
+          <span className="stat-value">{sleepStats.TPS_plus} / 100</span>
+          <small className="stat-note">TPS (frag. adjusted)</small>
+        </div>
+      </div>
+
+
+      {/* Stage Efficiency Section */}
+      {sleepStats && sleepStats.stageEfficiency && (
+        <div className="stage-efficiency-card">
+          <h4>Sleep Stage Efficiency</h4>
+          <div className="stage-bars">
+            {Object.entries(sleepStats.stageEfficiency).map(([stage, value]) => (
+              <div className="stage-row" key={stage}>
+                <span className="stage-label">{stage}</span>
+                <div className="stage-progress">
+                  <div
+                    className={`stage-fill ${stage.toLowerCase()}`}
+                    style={{ width: `${value}%` }}
+                  >
+                    {value}%
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  )}
+</div>
 
 
       {/* Pie Chart + Heart Gauge */}

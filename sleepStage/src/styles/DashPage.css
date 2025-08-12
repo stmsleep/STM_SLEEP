@@ -166,6 +166,8 @@ h2 {
 .sleep-score.fair { background: #fff8e1; color: #795548; }
 .sleep-score.poor { background: #ffebee; color: #b71c1c; }
 
+
+/* Summary Stats Grid (unchanged) */
 .sleep-stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -176,7 +178,7 @@ h2 {
   background: #fff;
   border-radius: 12px;
   padding: 0.8rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -200,4 +202,105 @@ h2 {
   font-size: 1.1rem;
   font-weight: 600;
   color: #222;
+}
+
+/* Stage Efficiency Card */
+.stage-efficiency-card {
+  margin-top: 1.5rem;
+  background: #fff;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.stage-efficiency-card h4 {
+  margin-bottom: 0.8rem;
+  font-size: 1rem;
+  color: #333;
+}
+
+.stage-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.stage-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.stage-label {
+  width: 2.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.stage-progress {
+  flex: 1;
+  background: #f1f1f1;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.stage-fill {
+  height: 1.2rem;
+  line-height: 1.2rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: black;
+  text-align: start;
+}
+
+/* Stage Colors */
+.stage-fill.n1 { background: #f9a825; }
+.stage-fill.n2 { background: #42a5f5; }
+.stage-fill.n3 { background: #66bb6a; }
+.stage-fill.rem { background: #ab47bc; }
+
+
+/* stat-card layout (matches existing grid) */
+.stat-card {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  background: #ffffff;
+  padding: 0.6rem 0.8rem;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+  min-width: 180px;
+}
+
+/* small emoji / icon circle */
+.stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f1f5f9, #ffffff);
+  font-size: 1.2rem;
+}
+
+/* titles & numbers */
+.stat-info { display: flex; flex-direction: column; }
+.stat-title { font-size: 0.85rem; color: #333; font-weight: 600; }
+.stat-value { font-size: 1.15rem; font-weight: 700; color: #0f172a; }
+.stat-note { font-size: 0.7rem; color: #6b7280; }
+
+/* small SQI gauge box alignment */
+.sqi-gauge { width: 220px; margin-left: 1rem; }
+
+/* stage-efficiency stage-fill fallback styles (if using earlier stage bars) */
+.stage-fill.n1 { background: linear-gradient(90deg,#f8d7a8,#f1c40f); color:#111; }
+.stage-fill.n2 { background: linear-gradient(90deg,#cfe8f9,#3498db); color:#fff; }
+.stage-fill.n3 { background: linear-gradient(90deg,#c8f7d6,#2ecc71); color:#fff; }
+.stage-fill.rem { background: linear-gradient(90deg,#f3d6f8,#9b59b6); color:#fff; }
+
+/* responsive tweak for small screens */
+@media (max-width: 900px) {
+  .sleep-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
+  .sqi-gauge { width: 100%; margin-left: 0; margin-top: 0.6rem; }
 }

@@ -93,25 +93,56 @@ class LoginView(APIView):
 
 @csrf_exempt
 def dashboard(request):
-    heart = heart_rate(request)
-    ecg = process_ecg(request)
-    eye = process_eog(request)
+    # Call helpers (they return JsonResponse objects)
+    heart_resp = heart_rate(request)
+    ecg_resp = process_ecg(request)
+    eye_resp = process_eog(request)
 
-    heart = json.loads(heart.content)  # bytes → dict
-    ecg = json.loads(ecg.content)      # FIXED: JsonResponse → dict
-    eye = json.loads(eye.content)
+    print("Got links")
+    # Convert JsonResponse -> dict safely
+    try:
+        heart = json.loads(heart_resp.content)
+    except Exception:
+        heart = {"error": "invalid response from heart_rate"}
 
-    print(ecg)
+    try:
+        ecg = json.loads(ecg_resp.content)
+    except Exception:
+        ecg = {"error": "invalid response from process_ecg"}
 
-    heart_file = heart["url"]
-    ecg_file = ecg["url"]
-    eye_file = eye["url"]
+    try:
+        eye = json.loads(eye_resp.content)
+    except Exception:
+        eye = {"error": "invalid response from process_eog"}
 
+    # Fail-safe extract urls
+    heart_file = heart.get("url")
+    ecg_file = ecg.get("url")
+    eye_file = eye.get("url")
+
+    # Collect any errors to return useful message instead of KeyError/500
+    errors = {}
+    if 'error' in heart:
+        errors['heart'] = heart['error']
+    if 'error' in ecg:
+        errors['ecg'] = ecg['error']
+    if 'error' in eye:
+        errors['eye'] = eye['error']
+
+    # if all missing, return error
+    if not heart_file and not ecg_file and not eye_file:
+        return JsonResponse({"error": "Failed to fetch any files", "details": errors}, status=500)
+    
+    print("sending")
+
+    # Otherwise return available urls
     return JsonResponse({
         "heart_file": heart_file,
         "ecg_file": ecg_file,
-        "eye_file": eye_file
+        "eye_file": eye_file,
+        "errors": errors
     })
+
 
 
 
