@@ -46,6 +46,7 @@ function DashPage() {
   const [sleepStats, setSleepStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [chartDataExists, setChartDataExists] = useState(false);
+  const [dashboardLoaded, setDashboardLoaded] = useState(false);
 
   const getSleepStats = (data) => {
     if (!data || data.length === 0) return null;
@@ -149,13 +150,11 @@ function DashPage() {
       transitions
     };
   };
-  
-  
-  
-  
+    
+
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchDashboardData = async () => {
       try {
         const { data } = await axios.get("http://localhost:8000/dashboard/", {
           withCredentials: true,
@@ -180,7 +179,6 @@ function DashPage() {
           let arr = parsed["qvar"] || parsed["data_corrected"] || [];
           arr = arr.slice(60000, 63000);
           if (arr.length > 0) {
-            const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
             setHeartChartData({
               x: Array.from({ length: arr.length }, (_, i) => i),
               y: arr,
@@ -203,8 +201,22 @@ function DashPage() {
           }
         }
 
+        // ✅ Mark dashboard as loaded
+        setDashboardLoaded(true);
+
+      } catch (err) {
+        console.error("Dashboard load failed:", err);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  useEffect(() => {
+    const fetchJarvisData = async () => {
+      try {
         const sleepRes = await axios.post(
-          "http://localhost:8000/jarvis/",
+        "http://localhost:8000/jarvis/",
           {
             channel_name: "T7",
             sfreq: 100,
@@ -219,13 +231,19 @@ function DashPage() {
           setChartDataExists(true);
         }
       } catch (err) {
-        console.error("Dashboard load failed:", err);
+        console.error("Jarvis call failed:", err);
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
-  }, []);
+
+    // ✅ Only run Jarvis after dashboardLoaded is true
+    if (dashboardLoaded) {
+      fetchJarvisData();
+    }
+  }, [dashboardLoaded]);
+
+
 
   const getHypnogramOptions = () => {
     if (!sleepPrediction) return {};
@@ -344,56 +362,36 @@ function DashPage() {
         </div>
       </div>
 
+      <br />
       {/* Add these cards inside the existing sleep-stats-grid or right below it */}
-      <div className="stat-card">
-        <span className="stat-icon">📊</span>
-        <div className="stat-info">
-          <span className="stat-title">SQI</span>
-          <span className="stat-value">{sleepStats.qualityScore} / 100</span>
-          <small className="stat-note">Sleep Quality Index</small>
+      <div className="sleep-stats-grid">
+        <div className="stat-card">
+          <span className="stat-icon">📊</span>
+          <div className="stat-info">
+            <span className="stat-title">Sleep Quality Index</span>
+            <span className="stat-value">{sleepStats.qualityScore} / 100</span>
+          </div>
         </div>
-      </div>
 
-      <div className="stat-card">
-        <span className="stat-icon">🔁</span>
-        <div className="stat-info">
-          <span className="stat-title">TPS</span>
-          <span className="stat-value">{sleepStats.TPS} / 100</span>
-          <small className="stat-note">Transition Pattern Score</small>
+        <div className="stat-card">
+          <span className="stat-icon">🔁</span>
+          <div className="stat-info">
+            <span className="stat-title">Transition Pattern Score</span>
+            <span className="stat-value">{sleepStats.TPS} / 100</span>
+          </div>
         </div>
-      </div>
 
-      <div className="stat-card">
-        <span className="stat-icon">🛡</span>
-        <div className="stat-info">
-          <span className="stat-title">TPS₊</span>
-          <span className="stat-value">{sleepStats.TPS_plus} / 100</span>
-          <small className="stat-note">TPS (frag. adjusted)</small>
+        <div className="stat-card">
+          <span className="stat-icon">🛡</span>
+          <div className="stat-info">
+            <span className="stat-title">Transition Pattern Score +</span>
+            <span className="stat-value">{sleepStats.TPS_plus} / 100</span>
+          </div>
         </div>
       </div>
 
 
       {/* Stage Efficiency Section */}
-      {sleepStats && sleepStats.stageEfficiency && (
-        <div className="stage-efficiency-card">
-          <h4>Sleep Stage Efficiency</h4>
-          <div className="stage-bars">
-            {Object.entries(sleepStats.stageEfficiency).map(([stage, value]) => (
-              <div className="stage-row" key={stage}>
-                <span className="stage-label">{stage}</span>
-                <div className="stage-progress">
-                  <div
-                    className={`stage-fill ${stage.toLowerCase()}`}
-                    style={{ width: `${value}%` }}
-                  >
-                    {value}%
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </>
   )}
 </div>

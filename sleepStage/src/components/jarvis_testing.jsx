@@ -5,7 +5,7 @@ import ReactECharts from "echarts-for-react";
 export default function SleepDashboard() {
   const [channelName, setChannelName] = useState("T7");
   const [sfreq, setSfreq] = useState(100);
-  const [sshCmd, setSshCmd] = useState("ssh -o StrictHostKeyChecking=no -p 11214 root@ssha.jarvislabs.ai");
+  const [sshCmd, setSshCmd] = useState("ssh -o StrictHostKeyChecking=no -p 11414 root@ssha.jarvislabs.ai");
   const [prediction, setPrediction] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
