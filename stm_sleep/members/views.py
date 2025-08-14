@@ -707,7 +707,7 @@ def jarvis(request):
             subprocess.run(mkdir_cmd, shell=True, check=True)
 
             scp_cmd = [
-                "scp", "-P", "11214",
+                "scp", "-P", "11414",
                 local_edf_path,
                 f'root@ssha.jarvislabs.ai:{remote_edf_path}'
             ]

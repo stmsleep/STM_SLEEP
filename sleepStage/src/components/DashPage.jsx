@@ -220,7 +220,7 @@ function DashPage() {
           {
             channel_name: "T7",
             sfreq: 100,
-            ssh_cmd: "ssh -o StrictHostKeyChecking=no -p 11214 root@ssha.jarvislabs.ai",
+            ssh_cmd: "ssh -o StrictHostKeyChecking=no -p 11414 root@ssha.jarvislabs.ai",
           },
           { withCredentials: true }
         );
